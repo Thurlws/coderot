@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Coderot</title>
+<meta name="description" content="Co-op neon arcade shooter: blast the bugs rotting your codebase with friends.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="c" aria-label="Coderot game canvas"></canvas>
+<div id="menu" class="panel">
+ <div class="col">
+  <label for="nick" class="label">CALLSIGN</label>
+  <input id="nick" maxlength="12" autocomplete="off" spellcheck="false">
+  <span class="label">CLASS</span>
+  <div class="classes" id="classes" role="group" aria-label="Class"></div>
+  <p id="classinfo"></p>
+  <p id="stats" class="stats"></p>
+  <span class="label">DIFFICULTY</span>
+  <div class="diffs" id="diffs" role="group" aria-label="Difficulty"></div>
+  <p id="diffinfo"></p>
+  <label class="opt"><input type="checkbox" id="autoskip"> Auto-skip waves <small>next wave every 30s even if bugs are left · points x1.25</small></label>
+ </div>
+ <div class="col">
+  <div class="trio"><button id="solo" class="hot">PLAY SOLO</button><button id="sandbox">SANDBOX</button><button id="opensettings">SETTINGS</button></div>
+  <span class="label">MUTATORS <small id="mutinfo"></small></span>
+  <div class="chips" id="muts" role="group" aria-label="Mutators"></div>
+  <span class="label">SHIP SKIN</span>
+  <div class="chips" id="skins" role="group" aria-label="Ship skin"></div>
+  <div id="online">
+    <span class="label">PLAY WITH FRIENDS</span>
+    <div class="duo"><button id="create">CREATE ROOM</button><button id="quick">QUICK MATCH</button></div>
+    <div class="row"><input id="code" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="join">JOIN</button></div>
+    <p class="msg" id="netmsg" role="status"></p>
+  </div>
+  <p class="help">Mouse: WASD move · aim · click shoot · E / right-click skill · Q super · Shift dash · Esc pause<br>
+    iPad: left thumb moves · right thumb aims + fires · tap SKILL / SUPER / DASH<br>Gamepad: sticks · RT shoot · RB dash · X skill · Y super</p>
+ </div>
+</div>
+<aside id="admin" aria-label="Admin sandbox" hidden></aside>
+<button id="admintoggle" type="button" hidden>ADMIN</button>
+<div id="settings" class="panel" role="dialog" aria-modal="true" aria-labelledby="settitle" hidden>
+  <h2 id="settitle">SETTINGS</h2>
+  <label class="opt"><input type="checkbox" id="s-shake"> Screen shake</label>
+  <label class="opt"><input type="checkbox" id="s-flash"> Screen flashes</label>
+  <label class="opt"><input type="checkbox" id="s-glitch"> Glitch and RGB-split effects</label>
+  <label class="opt"><input type="checkbox" id="s-particles"> Full particles <small>off = fewer, smoother on older devices</small></label>
+  <label class="opt"><input type="checkbox" id="s-numbers"> Score numbers on kills</label>
+  <label class="opt"><input type="checkbox" id="s-music"> Music <small>speeds up as the rot spreads</small></label>
+  <label class="opt range"><span>Volume <output id="s-volume-out" for="s-volume"></output></span><input type="range" id="s-volume" min="0" max="100" step="5"></label>
+  <div class="duo"><button id="s-reset">RESET</button><button id="s-done" class="hot">DONE</button></div>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<script src="js/config.js" defer></script>
+<script src="js/state.js" defer></script>
+<script src="js/audio.js" defer></script>
+<script src="js/render.js" defer></script>
+<script src="js/input.js" defer></script>
+<script src="js/world.js" defer></script>
+<script src="js/bosses.js" defer></script>
+<script src="js/player.js" defer></script>
+<script src="js/net.js" defer></script>
+<script src="js/main.js" defer></script>
+<script src="js/admin.js" defer></script>
+</body>
+</html>
