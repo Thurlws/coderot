@@ -168,7 +168,7 @@ function updMe(dt, I) {
   }
   const K = myK();
   me.inv -= dt; me.cd -= dt; me.dashCd -= dt; me.skillCd -= dt; me.stress -= dt; me.superT -= dt; me.noCharge -= dt; me.chainT -= dt;
-  if (me.superT > 0) { // LOAD TEST: auto-aim at the nearest bug and keep firing
+  if (me.superT > 0 || (I.fire && !I.aim)) { // LOAD TEST or keyboard firing: auto-aim at the nearest bug (LOAD TEST also keeps firing)
     const tgt = nearest(me, world.bugs.filter(targetable));
     if (tgt) I = { ...I, ax: tgt.x - me.x, ay: tgt.y - me.y, aim: true, fire: true };
   }
@@ -341,7 +341,7 @@ function syncLocal() {
     else { banner = { t: 2.6, big: 'WAVE ' + world.wave, sub: waveName(world.wave) }; arp([220, 277, 330, 440], .09, 'sawtooth', .04); }
   }
   if (world.phase !== seen.phase) {
-    seen.phase = world.phase;
+    seen.phase = world.phase; kbFocus = 0;
     if (world.phase === 'over') {
       overT = 0; shake = 24; glitch = .6; arp([330, 262, 196, 131], .14, 'sawtooth', .06);
       newBest = !adminMode && me.score > best; // sandbox scores don't count

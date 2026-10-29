@@ -23,7 +23,8 @@ function button(x, y, w, h, label, col, fn, hot) {
   X.fillStyle = hot ? col : 'rgba(12,10,32,.9)'; X.fillRect(x, y, w, h);
   X.strokeStyle = col; X.lineWidth = 2; X.strokeRect(x + 1, y + 1, w - 2, h - 2);
   txt(label, x + w / 2, y + h / 2 + 6, 16, hot ? '#020108' : col);
-  uiButtons.push({ x, y, w, h, fn });
+  if (uiButtons.filter(b => b.kb).length === kbFocus) { X.strokeStyle = PAL.white; X.lineWidth = 2; X.strokeRect(x - 5, y - 5, w + 10, h + 10); }
+  uiButtons.push({ x, y, w, h, fn, kb: true });
 }
 function meter(x, y, w, frac, fill, glow) {
   X.fillStyle = 'rgba(255,255,255,.1)'; X.fillRect(x, y, w, 8);

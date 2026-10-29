@@ -40,7 +40,7 @@ const gone = new Map();    // ids this client already removed locally, so a stal
 let isHost = true, rotFrac = 0;
 let pend = { h: new Map(), c: new Set(), e: [] }; // client actions waiting to be sent to the host
 
-let bullets = [], parts = [], rings = [], pops = [], smudges = [], turrets = [], uiButtons = [];
+let bullets = [], parts = [], rings = [], pops = [], smudges = [], turrets = [], uiButtons = [], kbFocus = 0; // kbFocus: keyboard-selected canvas button
 
 const UP0 = () => Object.fromEntries(Object.keys(UPG).map(k => [k, 0]));
 function mkMe() {

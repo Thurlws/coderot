@@ -39,7 +39,7 @@ function renderDiffs() {
     b.onclick = () => { myDiff = k; try { localStorage.setItem('coderot-diff', k); } catch (_) {} renderDiffs(); renderClasses(); };
     diffEl.appendChild(b);
   }
-  diffInfo.textContent = DIFFS[myDiff].desc + ' Online, the room uses the host’s difficulty and auto-skip setting.';
+  diffInfo.textContent = DIFFS[myDiff].desc;
 }
 const mutEl = document.getElementById('muts'), skinEl = document.getElementById('skins');
 function chip(label, on, col, title, fn, disabled) {
@@ -55,7 +55,7 @@ function renderExtras() { // mutators + skins
     try { localStorage.setItem('coderot-muts', JSON.stringify(myMuts)); } catch (_) {} renderExtras();
   }));
   const m = myMuts.reduce((a, k) => a * MUTS[k].score, 1);
-  document.getElementById('mutinfo').textContent = myMuts.length ? myMuts.map(k => MUTS[k].desc).join(' · ') + ' · points x' + m.toFixed(2) : 'hover for details · host’s picks apply online';
+  document.getElementById('mutinfo').textContent = myMuts.length ? myMuts.map(k => MUTS[k].desc).join(' · ') + ' · points x' + m.toFixed(2) : '';
   const have = unlocked(); if (!have.includes(mySkin)) mySkin = 'none';
   skinEl.textContent = '';
   for (const s of SKINS) {
@@ -113,6 +113,7 @@ const quickMatch = () => withBusy(async () => { // host the public room, or join
 function toMenu(message) {
   leaveRoom(); setRoomInUrl('');
   mode = 'menu'; paused = false; menuEl.hidden = false; resetWorld(); ambient(); renderClasses(); renderExtras();
+  document.getElementById('solo').focus(); // keyboard players land back on PLAY SOLO
   setMsg(message || '', !!message);
 }
 function copyInvite() {

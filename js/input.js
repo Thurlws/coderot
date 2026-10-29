@@ -17,10 +17,16 @@ addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && mode === 'game') e.preventDefault();
   if (e.code === 'KeyM') muted = !muted;
   if (mode !== 'game') return;
-  if (e.code === 'Escape' || e.code === 'KeyP') { if (world.phase === 'play') paused = !paused; return; }
-  if (paused) return;
+  if (e.code === 'Escape' || e.code === 'KeyP') { if (world.phase === 'play') { paused = !paused; kbFocus = 0; } return; }
+  if (paused || world.phase === 'over') { // pause + game-over buttons: arrows / Tab pick, Enter / Space press
+    const kb = uiButtons.filter(b => b.kb), n = kb.length; if (!n) return;
+    const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, Tab: e.shiftKey ? -1 : 1 }[e.code];
+    if (d) { kbFocus = (Math.min(kbFocus, n - 1) + d + n) % n; e.preventDefault(); }
+    if (e.code === 'Enter' || e.code === 'Space') { kb[Math.min(kbFocus, n - 1)].fn(); e.preventDefault(); }
+    return;
+  }
   if (e.code.startsWith('Digit') && me.offer) pickUpgrade(+e.code.slice(5) - 1);
-  if (world.phase === 'over' && (e.code === 'Enter' || e.code === 'Space')) restart();
+  if (e.code === 'KeyX') closeOldestPopup();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 function autoPause() {
@@ -82,7 +88,8 @@ function readInput() {
   }
   if (stickL) { const dx = stickL.x - stickL.ox, dy = stickL.y - stickL.oy, d = Math.hypot(dx, dy); if (d > 8) { const m = Math.min(1, d / 70); mx = dx / d * m; my = dy / d * m; } }
   if (stickR) { const dx = stickR.x - stickR.ox, dy = stickR.y - stickR.oy; if (Math.hypot(dx, dy) > 12) { ax = dx; ay = dy; aim = true; held.fire = true; } }
-  else if (!aim && !touchMode && mouse.seen > 0) { ax = mouse.x - me.x; ay = mouse.y - me.y; aim = true; if (mouse.down) held.fire = true; }
+  // Space = keyboard fire: skip mouse aim so player.js auto-aims at the nearest bug
+  else if (!aim && !touchMode && mouse.seen > 0 && !keys.Space) { ax = mouse.x - me.x; ay = mouse.y - me.y; aim = true; if (mouse.down) held.fire = true; }
   const out = { mx, my, ax, ay, aim, fire: held.fire };
   for (const b of ['dash', 'super', 'skill']) { out[b] = (held[b] && !prevBtn[b]) || tap[b]; prevBtn[b] = held[b]; tap[b] = false; }
   return out;

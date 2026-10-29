@@ -32,13 +32,26 @@
   <span class="label">SHIP SKIN</span>
   <div class="chips" id="skins" role="group" aria-label="Ship skin"></div>
   <div id="online">
-    <span class="label">PLAY WITH FRIENDS</span>
+    <span class="label">PLAY WITH FRIENDS <small>host’s settings apply</small></span>
     <div class="duo"><button id="create">CREATE ROOM</button><button id="quick">QUICK MATCH</button></div>
     <div class="row"><input id="code" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="join">JOIN</button></div>
     <p class="msg" id="netmsg" role="status"></p>
   </div>
-  <p class="help">Mouse: WASD move · aim · click shoot · E / right-click skill · Q super · Shift dash · Esc pause<br>
-    iPad: left thumb moves · right thumb aims + fires · tap SKILL / SUPER / DASH<br>Gamepad: sticks · RT shoot · RB dash · X skill · Y super</p>
+  <details class="help">
+    <summary>CONTROLS</summary>
+    <dl>
+      <dt>Move</dt><dd>WASD / arrows</dd>
+      <dt>Shoot</dt><dd>Space (auto-aims) · or aim + click</dd>
+      <dt>Skill</dt><dd>E · right-click</dd>
+      <dt>Super</dt><dd>Q</dd>
+      <dt>Dash</dt><dd>Shift</dd>
+      <dt>Upgrade</dt><dd>1 · 2 · 3</dd>
+      <dt>Close popup</dt><dd>X</dd>
+      <dt>Pause</dt><dd>Esc · arrows + Enter in menus</dd>
+      <dt>Gamepad</dt><dd>sticks · RT shoot · RB dash · X skill · Y super</dd>
+      <dt>Touch</dt><dd>left thumb moves · right thumb aims + fires</dd>
+    </dl>
+  </details>
  </div>
 </div>
 <aside id="admin" aria-label="Admin sandbox" hidden></aside>
