@@ -2,7 +2,7 @@
 // Admin sandbox: a solo-only playground. Spawn any enemy or boss, jump to any wave, swap classes on the fly,
 // drop power-ups and toggle cheats. Scores from the sandbox are never saved. ` (backquote) shows/hides the panel.
 
-let adminMode = false;
+let adminMode = false, admSkin0 = mySkin;
 const ADM = { god: false, infSuper: false, noCd: false, noSpawns: true, freeze: false, speed: 1, count: 1 };
 const admHoldSpawns = () => adminMode && ADM.noSpawns; // no wave spawns, no rot breeding, no wave advancing
 const admEl = document.getElementById('admin'), admToggle = document.getElementById('admintoggle');
@@ -70,6 +70,10 @@ function buildAdmin() {
     admBtn(ADM.freeze ? 'WORLD: FROZEN' : 'WORLD: RUNNING', () => { ADM.freeze = !ADM.freeze; }, ADM.freeze, ADM.freeze ? PAL.ice : '#5dffa8'),
     admBtn('CLEAR ALL CODEROT', admClearAll, undefined, PAL.rot));
   admSection('CLASS', ...CK.map(k => admBtn(CLASSES[k].name, () => admSetClass(k), k === me.cls)));
+  const K = CLASSES[me.cls], A = ALTS[me.cls]; // try any skill / super / skin, owned or not
+  for (const [k, base] of [['skill', K.skill], ['sup', K.sup]])
+    admSection(k === 'skill' ? 'SKILL' : 'SUPER', admBtn(base, () => { me.alt[k] = false; me.skillCd = 0; }, !me.alt[k]), admBtn(A[k][0], () => { me.alt[k] = true; me.skillCd = 0; }, me.alt[k]));
+  admSection('SKIN', ...SKINS.map(s => admBtn(s.name, () => { mySkin = s.id; }, mySkin === s.id, PAL.gold)));
   admSection('SPAWN AMOUNT', ...[1, 5, 10, 25].map(n => admBtn('x' + n, () => { ADM.count = n; }, ADM.count === n)));
   admSection('SPAWN ENEMY', ...BT.filter(t => t !== 'boss' && !BUG[t].part).map(t => admBtn(BUG[t].name, () => admSpawn(t), undefined, BUG[t].col)));
   admSection('SPAWN BOSS', ...BOSSES.map((B, i) => admBtn(B.name, () => admBoss(i), undefined, B.col)));
@@ -92,6 +96,7 @@ function admTick() { // cheats, applied every frame after the player update
   if (ADM.noCd) { me.skillCd = 0; me.dashCd = 0; }
 }
 function setAdmin(on) {
+  if (on && !adminMode) admSkin0 = mySkin; else if (!on && adminMode) mySkin = admSkin0; // sandbox skin picks don't stick
   adminMode = on; admToggle.hidden = !on; admEl.hidden = !on;
   Object.assign(ADM, { god: false, infSuper: false, noCd: false, noSpawns: true, freeze: false, speed: 1, count: 1 }); // sandbox starts calm
   if (on) buildAdmin();
