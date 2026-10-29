@@ -10,6 +10,7 @@ const bossDef = b => BOSSES[b.kind] || BOSSES[0];
 const partsOf = (b, type) => world.bugs.filter(p => p.pid === b.id && !p.dead && (!type || p.type === type));
 const bossTier = () => Math.max(1, Math.floor(world.wave / 5));
 const partHpMul = () => (1 + .35 * (bossTier() - 1)) * (1 + .5 * others.size);
+const LAUNCH_T = 45, podHp = () => partHpMul() * 1.4; // THE FINAL DEPLOY: launch countdown + tougher CI pods
 
 function spawnPart(type, b, slot, hpMul = 1, x = b.x, y = b.y) {
   const p = mkBug(type, x, y, world.nid++); p.pid = b.id; p.slot = slot;
@@ -22,7 +23,7 @@ function setupBoss(b) {
   if (B.ai === 'bsod') spawnPart('qr', b, 0);
   if (B.ai === 'spaghetti') { b.armT = 1; b.cuts = 0; }
   if (B.ai === 'loop') { b.ps = -1.57; b.pcx = W / 2; b.pcy = H / 2; b.hist = []; b.shed = 0; for (let i = 0; i < 22; i++) spawnPart('body', b, i); }
-  if (B.ai === 'deploy') { b.aux = 60; b.holoT = 8; for (let i = 0; i < 4; i++) spawnPart('pod', b, i, partHpMul()); }
+  if (B.ai === 'deploy') { b.aux = LAUNCH_T; b.holoT = 6; for (let i = 0; i < 4; i++) spawnPart('pod', b, i, podHp()); }
 }
 
 // How much of a hit a target takes. 0 = blocked (shield, armor body, immortal part).
@@ -106,11 +107,11 @@ function bossAI(b, tgt, dt, play) { // returns a movement override [ux, uy, spee
       if (step === 2) summon(['fork'], 2);
       if (step === 3) fanShots(b.x, b.y, a, 5, .2, 320);
       break;
-    case 'deploy': cd = 2.4;
-      if (step === 0) fanShots(b.x, b.y, a, 3, .1, 380);
-      if (step === 1) fanShots(b.x, b.y, a, 2, .5, 260, 'ad');
-      if (step === 2) summon(['trojan'], 1);
-      if (step === 3) ringShots(b.x, b.y, 12, 210);
+    case 'deploy': cd = 1.9;
+      if (step === 0) { fanShots(b.x, b.y, a, 5, .1, 380); if (rage) fanShots(b.x, b.y, a, 4, .22, 250); }
+      if (step === 1) fanShots(b.x, b.y, a, 3, .45, 260, 'ad');
+      if (step === 2) { summon(['trojan'], rage ? 2 : 1); ringShots(b.x, b.y, 8, 180); }
+      if (step === 3) { ringShots(b.x, b.y, 16, 210); ringShots(b.x, b.y, 16, 150, T + .2); }
       break;
   }
   b.cd = cd * f;
@@ -204,22 +205,29 @@ function bossParts(b, dt, L, play) {
       for (const p of pods) {
         const o = offs[p.slot % 4]; place(p, b.x + o[0], b.y + o[1] + Math.sin(T * 2 + p.slot) * 4);
         if (play && !frozen && b.stn <= 0 && (p.cd = (p.cd ?? rand(.5, 1.5)) - dt) <= 0) {
-          p.cd = (rage ? 1.1 : 1.7) * dif().fire; const t = nearest(p, L);
-          if (t) fireShot(p.x, p.y, Math.atan2(t.y - p.y, t.x - p.x), 320, 'orb');
+          p.cd = (rage ? .9 : 1.4) * dif().fire; const t = nearest(p, L);
+          if (t) fanShots(p.x, p.y, Math.atan2(t.y - p.y, t.x - p.x), rage ? 2 : 1, .18, 330);
         }
       }
-      for (const h of partsOf(b, 'holo')) if ((h.life -= dt) <= 0) { h.dead = true; gone.set(h.id, T); }
+      for (const h of partsOf(b, 'holo')) {
+        if ((h.life -= dt) <= 0) { h.dead = true; gone.set(h.id, T); continue; }
+        if (play && !frozen && (h.cd = (h.cd ?? rand(.8, 1.6)) - dt) <= 0) { // decoys shoot too, so you can't just ignore them
+          h.cd = 1.8 * dif().fire; const t = nearest(h, L);
+          if (t) fireShot(h.x, h.y, Math.atan2(t.y - h.y, t.x - h.x), 260, 'orb');
+        }
+      }
       if (!play || frozen) break;
-      if (!pods.length && !b.aborting) { b.aborting = true; b.stn = 5; b.aux = 60; b.hp -= b.mhp * .2; if (b.hp <= 0) killBug(b, false); }
-      if (b.aborting && b.stn <= 0) { b.aborting = false; for (let i = 0; i < 4; i++) spawnPart('pod', b, i, partHpMul()); }
-      if (!b.aborting && (b.aux -= dt * (rage ? 1.5 : 1)) <= 0) { // LAUNCH: prod gets wrecked
-        b.aux = 60;
+      if (!pods.length && !b.aborting) { b.aborting = true; b.stn = 4; b.aux = LAUNCH_T; b.hp -= b.mhp * .15; if (b.hp <= 0) killBug(b, false); }
+      if (b.aborting && b.stn <= 0) { b.aborting = false; for (let i = 0; i < 4; i++) spawnPart('pod', b, i, podHp()); }
+      if (!b.aborting && (b.aux -= dt * (rage ? 1.75 : 1)) <= 0) { // LAUNCH: prod gets wrecked
+        b.aux = LAUNCH_T;
         for (let k = 0; k < NC; k++) if (Math.random() < .3) rot[k] = 1;
-        for (const t of ['crawl', 'crawl', 'crawl', 'crawl', 'zip', 'zip', 'zip', 'adware']) spawnBug(t);
-        const have = new Set(pods.map(p => p.slot)); for (let i = 0; i < 4; i++) if (!have.has(i)) spawnPart('pod', b, i, partHpMul());
+        for (const t of ['crawl', 'crawl', 'crawl', 'crawl', 'zip', 'zip', 'zip', 'adware', 'adware', 'trojan']) spawnBug(t);
+        b.hp = Math.min(b.mhp, b.hp + b.mhp * .1); // a successful launch also patches the boss
+        const have = new Set(pods.map(p => p.slot)); for (let i = 0; i < 4; i++) if (!have.has(i)) spawnPart('pod', b, i, podHp());
       }
       if ((b.holoT -= dt) <= 0) { // jump somewhere new and leave two hologram decoys behind
-        b.holoT = rage ? 9 : 14;
+        b.holoT = rage ? 7 : 11;
         const spots = [0, 1, 2].map(() => [rand(240, W - 240), rand(190, 330)]);
         b.x = b.tx = spots[0][0]; b.y = b.ty = spots[0][1];
         for (let i = 1; i < 3; i++) { const h = spawnPart('holo', b, i, 1, spots[i][0], spots[i][1]); h.life = 6; }
@@ -247,8 +255,8 @@ function bossEvents() {
       if (au > 0 && !(b.wAux > 0)) { banner = { t: 2, big: 'REBOOTING', sub: 'hit the QR code before 100%!' }; sfx(220, .5, 'sawtooth', .06, 110); }
       if (b.wAux > 0 && au === 0 && !stn) { banner = { t: 2, big: 'REBOOTED', sub: 'it healed 15% · hit the QR code harder' }; }
     }
-    if (ai === 'deploy' && b.wAux !== undefined && b.wAux < 3 && au > 50 && !stn) {
-      banner = { t: 2.6, big: 'DEPLOYED TO PROD', sub: 'rot everywhere · break the CI pods next time' };
+    if (ai === 'deploy' && b.wAux !== undefined && b.wAux < 3 && au > LAUNCH_T - 10 && !stn) {
+      banner = { t: 2.6, big: 'DEPLOYED TO PROD', sub: 'rot everywhere · it healed 10% · break the CI pods next time' };
       flash = 1; flashCol = '255,59,92'; shake = 30; glitch = .8; boom(1.2, .45);
     }
     b.wStn = stn; b.wAux = au;
