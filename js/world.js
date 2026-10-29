@@ -183,7 +183,7 @@ function nextWave() {
   world.spawnT = 2;
 }
 function startRun() {
-  world.run++; world.diff = myDiff; world.muts = myMuts.slice(); world.autoskip = myAutoSkip; world.wave = 0; world.bugs = []; world.pows = []; world.shots = []; world.dep = [];
+  world.run++; world.diff = myDiff; world.muts = myMuts.slice(); world.autoskip = myAutoSkip; world.meta = !online() || myMetaOnline; world.wave = 0; world.bugs = []; world.pows = []; world.shots = []; world.dep = [];
   world.breakT = 0; world.phase = 'play';
   rot.fill(0); nextWave();
 }
@@ -227,9 +227,9 @@ function killBug(b, mine) { // runs on every machine for effects; only the host 
     me.score += 2000; me.sup = Math.min(100, me.sup + 30); me.bosses++;
   }
   if (mine) {
-    me.chain++; me.chainT = 2.2; me.kills++;
+    me.chain++; me.chainT = 2.2; me.kills++; smokeChain(b);
     const m = 1 + Math.floor(me.chain / 5), pts = Math.round(D.pts * m * dif().score * mutScore() * (world.autoskip ? AUTO_SKIP_SCORE : 1)); me.score += pts;
-    if (me.noCharge <= 0) me.sup = Math.min(100, me.sup + D.charge * (1 + SUPER_GAIN[Math.min(4, me.up.battery)]) * (CLASSES[me.cls].charge || 1)); // supers can't refill themselves
+    if (me.noCharge <= 0) me.sup = Math.min(100, me.sup + D.charge * (1 + SUPER_GAIN[Math.min(4, me.up.battery)]) * (1 + .12 * me.m.charge) * (CLASSES[me.cls].charge || 1)); // supers can't refill themselves
     if (SET.numbers) pop(b.x, b.y - b.r, '+' + fmt(pts) + (m > 1 ? ' x' + m : ''), m > 1 ? PAL.gold : PCOL[myColor], boss ? 26 : big ? 22 : 15);
     if (me.chain % 10 === 0) { pop(me.x, me.y - 56, me.chain + ' CHAIN!', PAL.gold, 20); arp([523, 659, 784], .05, 'square', .04); }
   }
@@ -257,6 +257,7 @@ function hostDamage(b, dmg) { // the authoritative hit: host-local hits and remo
 }
 function damageBug(b, dmg, viaQr) {
   if (b.dead) return;
+  if (me.watch && me.watch.id === b.id && me.watch.t > T) dmg *= 2; // WATCH EXPRESSION
   const D = BUG[b.type];
   if (ghostly(b)) return;
   if (D.fwd) { b.hit = .07; const p = world.bugs.find(x => x.id === b.pid && !x.dead); if (p) damageBug(p, dmg, true); return; }
@@ -283,6 +284,14 @@ function doRevert(x, y) {
     b.hp -= b.type === 'boss' ? 30 * Math.max(.25, dmgMul(b, true)) : 8; b.hit = .1; if (b.hp <= 0) killBug(b, false);
   }
 }
+function doExtract(x, y) { // EXTRACT METHOD: drag regular bugs toward the refactorer
+  for (const b of world.bugs) {
+    if (b.dead || b.type === 'boss' || isPart(b)) continue;
+    const d = Math.hypot(b.x - x, b.y - y); if (d > 320 || d < 50) continue;
+    const k = (d - 50) / d * .75; b.x -= (b.x - x) * k; b.y -= (b.y - y) * k; b.vx = b.vy = 0;
+  }
+}
+function doShieldAll() { world.sw++; } // MAINTENANCE WINDOW: every client shields itself when world.sw changes
 function doFreeze(x, y) { for (const b of world.bugs) if (!b.dead && Math.hypot(b.x - x, b.y - y) < 320) b.frz = b.type === 'boss' ? 1.5 : 3; }
 function doRewrite(x, y) {
   discCells(x, y, 220, k => { rot[k] = 0; });
@@ -311,6 +320,8 @@ function applyAct(a) { // host: one batch of a remote player's actions. Untruste
     if (e[0] === 'v') doRevert(x, y);
     if (e[0] === 'f') doFreeze(x, y);
     if (e[0] === 'w') doRewrite(x, y);
+    if (e[0] === 'x') doExtract(x, y);
+    if (e[0] === 'm') doShieldAll();
     if (e[0] === 'r' && world.phase === 'over') startRun();
   }
 }

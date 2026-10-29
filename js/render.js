@@ -578,6 +578,25 @@ function drawTurret(x, y, t, col = '#5dffa8') {
   X.strokeStyle = col; X.lineWidth = 2; X.shadowColor = col; X.shadowBlur = 14; X.strokeRect(-9, -9, 18, 18);
   X.rotate(t * 4); X.fillStyle = col; X.fillRect(-2, -16, 4, 12); X.restore();
 }
+function drawAltMarks(t) { // your own alt-ability markers: watched / routed bug, backdoor, rewind ghost, tech debt
+  const col = PCOL[myColor];
+  for (const [m, c] of [[me.watch, PAL.ice], [me.route, col]]) {
+    const b = m && m.t > T && world.bugs.find(x => x.id === m.id && !x.dead); if (!b) continue;
+    X.save(); X.translate(b.x, b.y); X.rotate(t * 2); X.strokeStyle = c; X.lineWidth = 2; X.shadowColor = c; X.shadowBlur = 10;
+    for (let i = 0; i < 4; i++) { X.rotate(Math.PI / 2); X.beginPath(); X.moveTo(b.r + 6, 0); X.lineTo(b.r + 16, 0); X.stroke(); }
+    X.beginPath(); X.arc(0, 0, b.r + 10, 0, 7); X.stroke(); X.restore();
+  }
+  if (me.door && me.door.t > T) {
+    const d = me.door; X.save(); X.translate(d.x, d.y); X.rotate(t * 3); X.strokeStyle = col; X.lineWidth = 2; X.shadowColor = col; X.shadowBlur = 12;
+    X.strokeRect(-10, -10, 20, 20); X.restore(); txt(Math.ceil(d.t - T) + 's', d.x, d.y + 28, 10, col, DISP);
+    X.globalAlpha = .25; X.strokeStyle = col; X.setLineDash([4, 6]); X.beginPath(); X.moveTo(me.x, me.y); X.lineTo(d.x, d.y); X.stroke(); X.setLineDash([]); X.globalAlpha = 1;
+  }
+  if (me.alt.sup && me.cls === 'debugger' && me.sup >= 100 && me.hist[0]) { // where REWIND would take you
+    const h = me.hist[0]; X.globalAlpha = .35 + .15 * Math.sin(t * 6); X.strokeStyle = PAL.ice; X.lineWidth = 2;
+    X.beginPath(); X.arc(h.x, h.y, 16, 0, 7); X.stroke(); X.globalAlpha = 1;
+  }
+  if (me.superT > 0 && me.supK === 'debt') txt('DEBT x' + me.debt, me.x, me.y - 34, 12, PAL.rot, DISP);
+}
 function drawPlayer(p, t) {
   X.globalCompositeOperation = 'lighter'; X.fillStyle = p.col;
   if (p.skin === 'binary') { X.font = '14px ' + MONO; X.textAlign = 'center'; }
@@ -593,6 +612,16 @@ function drawPlayer(p, t) {
     X.setLineDash([3, 7]); X.beginPath(); X.arc(0, 0, 21, 0, 7); X.stroke(); X.setLineDash([]); X.restore();
   }
   for (const tu of p.tu || []) drawTurret(tu[0], tu[1], t);
+  for (const [bx, by] of p.bc || []) { // HEALTH CHECK beacon
+    X.globalAlpha = .12 + .06 * Math.sin(t * 4); X.fillStyle = '#5dffa8'; X.beginPath(); X.arc(bx, by, 120, 0, 7); X.fill();
+    X.globalAlpha = .6; X.strokeStyle = '#5dffa8'; X.lineWidth = 2; X.setLineDash([6, 8]); X.beginPath(); X.arc(bx, by, 120, t, t + 6.283); X.stroke(); X.setLineDash([]);
+    X.globalAlpha = 1; X.fillStyle = '#5dffa8'; X.fillRect(bx - 3, by - 10, 6, 20); X.fillRect(bx - 10, by - 3, 20, 6);
+  }
+  for (const [mx, my] of p.mi || []) { // DEVOPS containers
+    X.save(); X.translate(mx, my); X.rotate(Math.sin(t * 5 + mx) * .3);
+    X.fillStyle = 'rgba(2,1,8,.8)'; X.fillRect(-8, -8, 16, 16); X.strokeStyle = p.col; X.lineWidth = 2; X.shadowColor = p.col; X.shadowBlur = 10; X.strokeRect(-8, -8, 16, 16);
+    X.fillStyle = p.col; X.fillRect(-4, -2, 8, 4); X.restore();
+  }
   if (p.down) {
     X.strokeStyle = 'rgba(255,255,255,.25)'; X.lineWidth = 4; X.beginPath(); X.arc(p.x, p.y, 26, 0, 7); X.stroke();
     if (p.rev) { X.strokeStyle = p.col; X.beginPath(); X.arc(p.x, p.y, 26, -Math.PI / 2, -Math.PI / 2 + p.rev / 2 * 6.283); X.stroke(); }
@@ -646,9 +675,10 @@ function drawWorld(t) {
   }
   X.globalAlpha = 1; X.globalCompositeOperation = 'source-over';
   for (const o of others.values()) drawPlayer({ x: o.x, y: o.y, a: o.a, col: o.col, name: o.n, cls: o.cls, hp: o.hp, mh: o.mh, down: o.d, rev: 0, inv: 0, orbit: o.o,
-    duck: o.dk, fw: o.fw, sudo: o.sh > CLASSES[o.cls].shots + 1, trail: o.trail, tu: o.tu, skin: o.sk }, t);
+    duck: o.dk, fw: o.fw, sudo: o.sh > CLASSES[o.cls].shots + 1, trail: o.trail, tu: o.tu, mi: o.mi, bc: o.bc, skin: o.sk }, t);
   if (world.run) drawPlayer({ x: me.x, y: me.y, a: me.a, col: PCOL[myColor], name: nick, cls: me.cls, hp: me.hp, mh: me.mh, down: me.down, rev: me.rev, inv: me.inv,
-    orbit: me.up.orbit, duck: me.pw.duck > 0, fw: me.pw.firewall > 0, sudo: me.pw.sudo > 0, trail: me.trail, tu: turrets.map(t2 => [t2.x, t2.y]), isMe: true, skin: mySkin }, t);
+    orbit: me.up.orbit, duck: me.pw.duck > 0, fw: me.pw.firewall > 0, sudo: me.pw.sudo > 0, trail: me.trail, tu: turrets.map(t2 => [t2.x, t2.y]), mi: minions.map(n => [n.x, n.y]), bc: beacons.map(b => [b.x, b.y]), isMe: true, skin: mySkin }, t);
+  if (world.run && !me.down) drawAltMarks(t);
   X.globalCompositeOperation = 'lighter';
   X.font = '18px ' + MONO; X.textAlign = 'center';
   for (const q of parts) {
@@ -759,14 +789,14 @@ function drawHUD(t) {
     txt(st[0], W / 2, 116, 11, st[1], DISP, 'center', .9);
   }
   // bottom-left: class skill
-  const sk = clamp(1 - me.skillCd / (K.cd * Math.pow(.8, me.up.skill)), 0, 1), skReady = me.skillCd <= 0;
-  txt((touchMode ? '' : 'E  ') + K.skill + (skReady ? '  READY' : '  ' + Math.ceil(me.skillCd) + 's'), 20, H - 36, 11, skReady ? col : PAL.dim, DISP, 'left');
+  const sk = clamp(1 - me.skillCd / (skillCdBase() * Math.pow(.8, me.up.skill)), 0, 1), skReady = me.skillCd <= 0;
+  txt((touchMode ? '' : 'E  ') + skillName() + (skReady ? '  READY' : '  ' + Math.ceil(me.skillCd) + 's'), 20, H - 36, 11, skReady ? col : PAL.dim, DISP, 'left');
   meter(20, H - 26, 200, sk, col, skReady && .5 + .5 * Math.sin(t * 8) > .5 ? col : null);
   // bottom-centre: class super
   const ready = me.sup >= 100, mw = 280;
   const g = X.createLinearGradient(W / 2 - mw / 2, 0, W / 2 + mw / 2, 0); g.addColorStop(0, '#ff4fd8'); g.addColorStop(1, PAL.gold);
-  meter(W / 2 - mw / 2, H - 26, mw, me.superT > 0 ? me.superT / 6 : me.sup / 100, g, ready && .5 + .5 * Math.sin(t * 10) > .3 ? PAL.gold : null);
-  txt(me.superT > 0 ? K.sup + ' ACTIVE' : ready ? K.sup + ' READY · ' + (touchMode ? 'TAP SUPER' : 'PRESS Q') : 'SUPER ' + Math.floor(me.sup) + '%', W / 2, H - 36, 11, ready || me.superT > 0 ? PAL.gold : PAL.dim);
+  meter(W / 2 - mw / 2, H - 26, mw, me.superT > 0 ? me.superT / me.superMax : me.sup / 100, g, ready && .5 + .5 * Math.sin(t * 10) > .3 ? PAL.gold : null);
+  txt(me.superT > 0 ? supName() + ' ACTIVE' : ready ? supName() + ' READY · ' + (touchMode ? 'TAP SUPER' : 'PRESS Q') : 'SUPER ' + Math.floor(me.sup) + '%', W / 2, H - 36, 11, ready || me.superT > 0 ? PAL.gold : PAL.dim);
   if (me.t < 9 && world.wave === 1 && !touchMode) txt('WASD move · mouse aim · click shoot · Shift dash · E / right-click skill · Q super', W / 2, H - 64, 12, PAL.dim, MONO, 'center', clamp(9 - me.t, 0, 1));
 }
 const diffW = () => { X.font = '11px ' + DISP; return X.measureText(dif().name).width; };
@@ -796,6 +826,10 @@ function drawUpgrades(t) {
     if (syn) txt('+ ' + SYN[syn].name, x + cw - 12, y + 82, 10, '#ff4fd8', DISP, 'right', .7 + .3 * Math.sin(t * 6));
     uiButtons.push({ x, y, w: cw, h: chh, fn: () => pickUpgrade(i) });
   });
+  if (me.rerolls > 0) { // GIT STASH perk
+    txt((touchMode ? 'TAP HERE' : 'R') + ' · REROLL (' + me.rerolls + ' left)', W / 2, y + chh + 22, 12, PAL.dim, DISP);
+    uiButtons.push({ x: W / 2 - 120, y: y + chh + 6, w: 240, h: 24, fn: rerollUpgrades });
+  }
 }
 function drawTouch(t) {
   if (!touchMode || world.phase !== 'play' || paused) return;
@@ -807,7 +841,7 @@ function drawTouch(t) {
   if (stickR) { X.globalAlpha = .4; X.beginPath(); X.arc(stickR.ox, stickR.oy, 60, 0, 7); X.stroke(); X.beginPath(); X.arc(stickR.x, stickR.y, 22, 0, 7); X.fill(); }
   else txt('drag here to aim + fire', W * .62, H - 80, 12, PAL.dim, MONO, 'center', .5);
   X.globalAlpha = 1;
-  const fill = { super: me.sup / 100, skill: clamp(1 - me.skillCd / CLASSES[me.cls].cd, 0, 1), dash: clamp(1 - me.dashCd / .8, 0, 1) };
+  const fill = { super: me.sup / 100, skill: clamp(1 - me.skillCd / skillCdBase(), 0, 1), dash: clamp(1 - me.dashCd / .8, 0, 1) };
   for (const k in TOUCH_BTN) {
     const b = TOUCH_BTN[k], c = k === 'super' ? (fill.super >= 1 ? PAL.gold : '#ff4fd8') : PCOL[myColor], ready = fill[k] >= 1;
     X.fillStyle = ready ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,.05)'; X.beginPath(); X.arc(b.x, b.y, b.r, 0, 7); X.fill();

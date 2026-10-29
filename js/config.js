@@ -125,7 +125,10 @@ const CLASSES = {
   qa: { name: 'QA TESTER', role: 'SNIPER', desc: 'Slow railgun that pierces 3 bugs.', skill: 'STRESS TEST', skillDesc: 'Triple fire rate for 3s.', cd: 11,
     sup: 'LOAD TEST', supDesc: '6s of auto-aimed 4x fire rate rails that pierce everything.',
     caps: { fire: 2, speed: 2 },
-    hp: 3, speed: 260, fire: .45, dmg: 4, shots: 1, spread: 0, bspeed: 1500, life: .9, pierce: 3, clean: .8 }};
+    hp: 3, speed: 260, fire: .45, dmg: 4, shots: 1, spread: 0, bspeed: 1500, life: .9, pierce: 3, clean: .8 },
+  devops: { name: 'DEVOPS', role: 'SUMMONER', desc: 'Weak gun, but containers hunt bugs for you. 3 HP.', skill: 'SPIN UP', skillDesc: 'Launch a container that hunts bugs for 20s (max 3).', cd: 6,
+    sup: 'KUBERNETES', supDesc: 'Deploy 6 fast containers for 10s.',
+    hp: 3, speed: 265, fire: .28, dmg: .7, shots: 1, spread: .1, bspeed: 820, life: .7, pierce: 0, clean: .6 }};
 const CK = Object.keys(CLASSES);
 const upgCap = (cls, k) => Math.min(UPG_MAX[k] || 99, ((CLASSES[cls] || {}).caps || {})[k] || 99);
 const SHAPES = { // ship outlines, nose pointing +x
@@ -133,7 +136,39 @@ const SHAPES = { // ship outlines, nose pointing +x
   refactorer: [[18, -9], [18, 9], [-12, 16], [-6, 0], [-12, -16]],
   hacker: [[27, 0], [-10, -9], [-4, 0], [-10, 9]],
   sysadmin: [[20, 0], [5, -14], [-12, -10], [-6, 0], [-12, 10], [5, 14]],
-  qa: [[29, 0], [2, -5], [-10, -14], [-6, 0], [-10, 14], [2, 5]]};
+  qa: [[29, 0], [2, -5], [-10, -14], [-6, 0], [-10, 14], [2, 5]],
+  devops: [[18, -8], [18, 8], [6, 14], [-12, 10], [-6, 0], [-12, -10], [6, -14]]};
+
+// ---------- shop (meta progression, bought with commits; save + effects in state.js / player.js) ----------
+// Debugger + Hacker are free. Sandbox can play every class.
+const CLASS_COST = { refactorer: 40, sysadmin: 50, qa: 60, devops: 75 };
+// Per-class stat boosts: [name, effect per level, max level, base cost]. Each level costs 1.7x the last.
+const STATUP = {
+  hp: ['UNIT TESTS+', '+1 max HP', 2, 40], dmg: ['OPTIMIZER', '+12% damage', 5, 15], fire: ['FAST CI', '+8% fire rate', 5, 15],
+  speed: ['LOW LATENCY', '+5% move speed', 3, 10], dash: ['MACROS', '-10% dash cooldown', 3, 10], charge: ['CAPACITOR', '+12% super charge', 4, 12]};
+// Shared perks, same format.
+const PERKS = {
+  head: ['HEAD START', '+1 upgrade pick at the start of each run', 2, 40],
+  reroll: ['GIT STASH', '+1 upgrade reroll per run (R)', 3, 20],
+  warm: ['WARM CACHE', 'start each run with +25% super', 2, 25]};
+const metaCost = (base, lv) => Math.round(base * Math.pow(1.7, lv));
+// One alternative skill + super per class: [name, description, skill cooldown]. Bought once, then equipped in the shop.
+// Each one is a mechanic no other class has: debugger = time, refactorer = absorb/pull, hacker = exploits/routing,
+// sysadmin = team sustain, qa = precision, devops = commanding containers.
+const ALT_COST = { skill: 50, sup: 75 };
+const ALTS = {
+  debugger: { skill: ['WATCH EXPRESSION', 'Tag the bug you aim at: it takes 2x damage from you for 6s.', 9],
+    sup: ['REWIND', 'Jump back to where you were 4s ago, with the HP you had then.'] },
+  refactorer: { skill: ['EXTRACT METHOD', 'Pull nearby bugs into a tight cluster in front of your shotgun.', 7],
+    sup: ['TECH DEBT', '8s: every hit is absorbed, then paid back as one big shockwave.'] },
+  hacker: { skill: ['BACKDOOR', 'Plant a backdoor, then use it again within 8s to teleport back.', 6],
+    sup: ['MAN IN THE MIDDLE', '7s: enemy shots that get close flip sides and hunt bugs.'] },
+  sysadmin: { skill: ['HEALTH CHECK', 'Drop a beacon: devs inside regain 1 HP every 3s for 12s.', 16],
+    sup: ['MAINTENANCE WINDOW', 'Shield every dev in the room for 6s.'] },
+  qa: { skill: ['EDGE CASE', 'Your next shot is a wide 6x rail that pierces everything.', 6],
+    sup: ['SMOKE TEST', '7s: every bug you kill fires a rail at the next nearest bug.'] },
+  devops: { skill: ['ROUTE TRAFFIC', 'Every container rushes the bug you aim at for 4s, hitting 2x.', 8],
+    sup: ['CHAOS MONKEY', 'Every container explodes, then 3 fresh ones deploy.'] }};
 
 // Difficulty multipliers. The host's pick applies to the whole room.
 // hp/sp = enemy health/speed, count = enemies per wave, rot = rot spread + breeding, fire = enemy attack cooldown, score = points.

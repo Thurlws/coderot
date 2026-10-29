@@ -13,12 +13,13 @@ addEventListener('resize', resize); resize();
 let mode = 'menu', paused = false, T = 0, overT = 0, banner = null;
 let shake = 0, flash = 0, flashCol = '255,40,80', hitstop = 0, glitch = 0, chroma = 0, slowmo = 0, myPing = 0;
 let deaths = [], newUnlocks = []; // boss death sequences in progress (render.js) · skins unlocked by the last run
-let nick = 'DEV' + (100 + Math.random() * 900 | 0), myClass = 'debugger', myDiff = 'normal', myAutoSkip = false, myColor = 0, best = 0, newBest = false;
+let nick = 'DEV' + (100 + Math.random() * 900 | 0), myClass = 'debugger', myDiff = 'normal', myAutoSkip = false, myMetaOnline = true, myColor = 0, best = 0, newBest = false;
 try {
   nick = localStorage.getItem('coderot-nick') || nick;
   myClass = CLASSES[localStorage.getItem('coderot-class')] ? localStorage.getItem('coderot-class') : myClass;
   myDiff = DIFFS[localStorage.getItem('coderot-diff')] ? localStorage.getItem('coderot-diff') : myDiff;
   myAutoSkip = localStorage.getItem('coderot-autoskip') === '1';
+  myMetaOnline = localStorage.getItem('coderot-metaonline') !== '0';
   best = +localStorage.getItem('coderot-best') || 0;
 } catch (_) {}
 const dif = () => DIFFS[world.diff] || DIFFS.normal;
@@ -31,23 +32,25 @@ try { const s = JSON.parse(localStorage.getItem('coderot-settings') || '{}'); fo
 const saveSettings = () => { try { localStorage.setItem('coderot-settings', JSON.stringify(SET)); } catch (_) {} };
 
 // The authoritative world lives on the host (or locally in solo); clients mirror it from snapshots.
-const world = { diff: 'normal', muts: [], autoskip: false, phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, ht: '', nx: W / 2, ny: H / 2, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 };
+const world = { diff: 'normal', muts: [], autoskip: false, meta: true, sw: 0, phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, ht: '', nx: W / 2, ny: H / 2, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 };
 let hintT = -9; // last time a mechanic hint popped up
 const rot = new Float32Array(NC), cleanedAt = new Float32Array(NC).fill(-9);
-const seen = { run: 0, wave: 0, nk: 0, hl: 0, bk: 0, cleared: false, phase: 'wait' };
+const seen = { run: 0, wave: 0, nk: 0, hl: 0, sw: 0, bk: 0, cleared: false, phase: 'wait' };
 const others = new Map();  // remote players by peer id
 const gone = new Map();    // ids this client already removed locally, so a stale snapshot doesn't resurrect them
 let isHost = true, rotFrac = 0;
 let pend = { h: new Map(), c: new Set(), e: [] }; // client actions waiting to be sent to the host
 
-let bullets = [], parts = [], rings = [], pops = [], smudges = [], turrets = [], uiButtons = [], kbFocus = 0; // kbFocus: keyboard-selected canvas button
+let bullets = [], parts = [], rings = [], pops = [], smudges = [], turrets = [], minions = [], beacons = [], uiButtons = [], kbFocus = 0; // kbFocus: keyboard-selected canvas button
 
 const UP0 = () => Object.fromEntries(Object.keys(UPG).map(k => [k, 0]));
+// world.meta = shop stat boosts + perks are on (always solo; online the host decides). Class unlocks and equipped alt abilities always apply.
 function mkMe() {
-  const K = CLASSES[myClass];
-  return { cls: myClass, x: W / 2 + rand(-80, 80), y: H / 2 + rand(-50, 50), vx: 0, vy: 0, fx: 1, fy: 0, a: 0, hp: K.hp, mh: K.hp,
-    cd: 0, dashT: 0, dashCd: 0, inv: 1.5, down: false, rev: 0, score: 0, chain: 0, chainT: 0, pw: {}, trail: [], sup: 0, superT: 0, noCharge: 0,
-    up: UP0(), syn: {}, picks: 0, offer: null, firing: false, duckCd: 0, skillCd: 0, stress: 0, t: 0, kills: 0, bosses: 0 };
+  const K = CLASSES[myClass], on = world.meta !== false, m = metaLv(myClass, on), P = k => on ? META.perk[k] || 0 : 0;
+  return { cls: myClass, x: W / 2 + rand(-80, 80), y: H / 2 + rand(-50, 50), vx: 0, vy: 0, fx: 1, fy: 0, a: 0, hp: K.hp + m.hp, mh: K.hp + m.hp,
+    cd: 0, dashT: 0, dashCd: 0, inv: 1.5, hist: [], debt: 0, healT: 3, edge: false, door: null, watch: null, route: null, down: false, rev: 0, score: 0, chain: 0, chainT: 0, pw: {}, trail: [], sup: 25 * P('warm'), superT: 0, superMax: 6, supK: '', noCharge: 0,
+    up: UP0(), syn: {}, picks: P('head'), rerolls: P('reroll'), offer: null, firing: false, duckCd: 0, skillCd: 0, stress: 0, t: 0, kills: 0, bosses: 0,
+    m, alt: equipped(myClass) };
 }
 
 // Lifetime stats per class + difficulty, keyed 'debugger/normal'. Sandbox runs never count.
@@ -76,6 +79,18 @@ function recordRun() {
 let commits = 0, runCommits = 0;
 try { commits = Math.max(0, Math.floor(+localStorage.getItem('coderot-commits') || 0)); } catch (_) {}
 
+// Shop save: owned classes, stat levels ('qa.dmg': 2), perk levels, owned + equipped alt abilities ('qa.skill': true).
+let META = { cls: [], lv: {}, perk: {}, alt: {}, eq: {} };
+try {
+  const s = JSON.parse(localStorage.getItem('coderot-meta') || '{}') || {};
+  if (Array.isArray(s.cls)) META.cls = s.cls.filter(c => CLASSES[c]);
+  for (const k of ['lv', 'perk', 'alt', 'eq']) if (s[k] && typeof s[k] === 'object') META[k] = s[k];
+} catch (_) {}
+for (const k in STATS) { const c = k.split('/')[0]; if (CLASS_COST[c] && !META.cls.includes(c)) META.cls.push(c); } // returning players keep classes they've played
+const saveMeta = () => { try { localStorage.setItem('coderot-meta', JSON.stringify(META)); localStorage.setItem('coderot-commits', commits); } catch (_) {} };
+const owns = cls => !CLASS_COST[cls] || META.cls.includes(cls);
+const metaLv = (cls, on = true) => Object.fromEntries(Object.keys(STATUP).map(k => [k, on ? Math.min(STATUP[k][2], META.lv[cls + '.' + k] || 0) : 0]));
+const equipped = cls => ({ skill: !!(META.alt[cls + '.skill'] && META.eq[cls + '.skill']), sup: !!(META.alt[cls + '.sup'] && META.eq[cls + '.sup']) });
 let me = mkMe();
 
 const pop = (x, y, text, col, size = 16) => pops.push({ x, y, text, col, size, life: 1 });

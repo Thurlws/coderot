@@ -16,7 +16,7 @@
  <div class="col">
   <label for="nick" class="label">CALLSIGN</label>
   <input id="nick" maxlength="12" autocomplete="off" spellcheck="false">
-  <span class="label">CLASS</span>
+  <span class="label">CLASS <small id="wallet"></small></span>
   <div class="classes" id="classes" role="group" aria-label="Class"></div>
   <p id="classinfo"></p>
   <p id="stats" class="stats"></p>
@@ -26,7 +26,7 @@
   <label class="opt" title="The next wave starts as soon as the current one stops spawning. Also in the pause menu."><input type="checkbox" id="autoskip"> Wave skip <small>points x1.25</small></label>
  </div>
  <div class="col">
-  <div class="trio"><button id="solo" class="hot">PLAY SOLO</button><button id="sandbox">SANDBOX</button><button id="opensettings">SETTINGS</button></div>
+  <div class="quad"><button id="solo" class="hot">PLAY SOLO</button><button id="openshop">SHOP</button><button id="sandbox">SANDBOX</button><button id="opensettings">SETTINGS</button></div>
   <span class="label">MUTATORS <small id="mutinfo"></small></span>
   <div class="chips" id="muts" role="group" aria-label="Mutators"></div>
   <span class="label">SHIP SKIN</span>
@@ -56,6 +56,12 @@
 </div>
 <aside id="admin" aria-label="Admin sandbox" hidden></aside>
 <button id="admintoggle" type="button" hidden>ADMIN</button>
+<div id="shop" class="panel" role="dialog" aria-modal="true" aria-labelledby="shoptitle" hidden>
+  <h2 id="shoptitle">SHOP <small id="shopwallet"></small></h2>
+  <div id="shopbody"></div>
+  <label class="opt"><input type="checkbox" id="metaonline"> Shop upgrades in rooms I host <small>off = everyone plays base stats</small></label>
+  <button id="shopdone" class="hot">DONE</button>
+</div>
 <div id="settings" class="panel" role="dialog" aria-modal="true" aria-labelledby="settitle" hidden>
   <h2 id="settitle">SETTINGS</h2>
   <label class="opt"><input type="checkbox" id="s-shake"> Screen shake</label>

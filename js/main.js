@@ -17,13 +17,16 @@ function renderClasses() {
     const c = CLASSES[k], b = document.createElement('button');
     b.type = 'button'; b.className = 'cls'; b.setAttribute('aria-pressed', String(k === myClass));
     const nm = document.createElement('b'); nm.textContent = c.name;
-    const rl = document.createElement('span'); rl.textContent = c.role;
+    const rl = document.createElement('span'); rl.textContent = owns(k) ? c.role : '🔒 ' + CLASS_COST[k];
     b.append(nm, rl);
     b.onclick = () => { myClass = k; try { localStorage.setItem('coderot-class', k); } catch (_) {} renderClasses(); };
     classEl.appendChild(b);
   }
+  document.getElementById('wallet').textContent = fmt(commits) + ' commits';
   const c = CLASSES[myClass];
-  classInfo.textContent = c.desc + ' Skill: ' + c.skill + ' (' + c.skillDesc.replace(/\.$/, '') + '). Super: ' + c.sup + ' (' + c.supDesc.replace(/\.$/, '') + ').';
+  const eq = equipped(myClass), A = ALTS[myClass], sk = eq.skill ? A.skill : [c.skill, c.skillDesc], su = eq.sup ? A.sup : [c.sup, c.supDesc];
+  classInfo.textContent = (owns(myClass) ? '' : 'LOCKED: unlock it in the SHOP (' + CLASS_COST[myClass] + ' commits) or try it in SANDBOX. ')
+    + c.desc + ' Skill: ' + sk[0] + ' (' + sk[1].replace(/\.$/, '') + '). Super: ' + su[0] + ' (' + su[1].replace(/\.$/, '') + ').';
   const s = statOf(myClass, myDiff);
   statsEl.textContent = c.name + ' on ' + DIFFS[myDiff].name + ': ' + (s.runs ? 'best ' + fmt(s.best) + ' · wave ' + s.wave + ' · ' + fmt(s.kills) + ' kills · '
     + s.bosses + ' bosses · ' + s.runs + ' run' + (s.runs > 1 ? 's' : '') : 'no runs yet');
@@ -68,9 +71,9 @@ function renderExtras() { // mutators + skins
 const setMsg = (s, bad) => { msgEl.textContent = s; msgEl.classList.toggle('bad', !!bad); };
 
 function resetWorld() {
-  Object.assign(world, { phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 });
-  Object.assign(seen, { run: 0, wave: 0, nk: 0, hl: 0, bk: 0, phase: 'wait' });
-  rot.fill(0); bullets = []; smudges = []; turrets = []; others.clear(); gone.clear();
+  Object.assign(world, { phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, sw: 0, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 });
+  Object.assign(seen, { run: 0, wave: 0, nk: 0, hl: 0, sw: 0, bk: 0, phase: 'wait' });
+  rot.fill(0); bullets = []; smudges = []; turrets = []; minions = []; beacons = []; others.clear(); gone.clear();
   pend = { h: new Map(), c: new Set(), e: [] };
   me = mkMe(); banner = null; deaths = []; slowmo = 0;
   setAdmin(false);
@@ -156,10 +159,73 @@ document.getElementById('opensettings').onclick = openSettings;
 document.getElementById('s-done').onclick = closeSettings;
 document.getElementById('s-reset').onclick = () => { Object.assign(SET, SET_DEFAULT); saveSettings(); syncSettingsUI(); };
 
-document.getElementById('solo').onclick = playSolo;
-document.getElementById('quick').onclick = quickMatch;
-document.getElementById('create').onclick = createRoom;
-document.getElementById('join').onclick = joinByCode;
+// Locked classes only play in SANDBOX.
+const ifOwned = fn => () => { if (owns(myClass)) return fn(); classInfo.animate([{ color: PAL.red }, { color: PAL.white }], 900); }; // the info line already says LOCKED
+document.getElementById('solo').onclick = ifOwned(playSolo);
+document.getElementById('quick').onclick = ifOwned(quickMatch);
+document.getElementById('create').onclick = ifOwned(createRoom);
+document.getElementById('join').onclick = ifOwned(joinByCode);
+
+// ---------- shop panel ----------
+const shopEl = document.getElementById('shop'), shopBody = document.getElementById('shopbody'), metaEl = document.getElementById('metaonline');
+let shopCls = myClass;
+function buy(cost, apply) {
+  if (commits < cost) return;
+  commits -= cost; apply(); saveMeta(); arp([523, 784, 1047], .05, 'triangle', .06);
+  renderShop(); renderClasses();
+}
+function shopRow(id, name, desc, label, fn, opts = {}) {
+  const row = document.createElement('div'), info = document.createElement('div'), b = document.createElement('button');
+  row.className = 'shoprow'; info.innerHTML = '<b></b><span></span>';
+  info.firstChild.textContent = name; info.lastChild.textContent = desc;
+  b.type = 'button'; b.textContent = label; b.dataset.id = id; b.disabled = !!opts.disabled; b.onclick = fn;
+  if (opts.pressed !== undefined) b.setAttribute('aria-pressed', String(opts.pressed));
+  row.append(info, b); return row;
+}
+const shopLabel = text => Object.assign(document.createElement('span'), { className: 'label', textContent: text });
+function renderShop() {
+  const focusId = document.activeElement && document.activeElement.dataset.id; // keep keyboard focus across re-renders
+  document.getElementById('shopwallet').textContent = fmt(commits) + ' commits';
+  shopBody.textContent = '';
+  const tiers = (lv, max, base, buyFn) => lv >= max ? ['MAXED', null, true] : [metaCost(base, lv) + ' ◆', () => buy(metaCost(base, lv), buyFn), commits < metaCost(base, lv)];
+  // which class to upgrade
+  const pickRow = document.createElement('div'); pickRow.className = 'chips';
+  for (const k of CK) { const b = chip(CLASSES[k].name, k === shopCls, PAL.gold, CLASSES[k].role, () => { shopCls = k; renderShop(); }); b.dataset.id = 'pick.' + k; pickRow.appendChild(b); }
+  shopBody.append(shopLabel('CLASS'), pickRow);
+  const C = CLASSES[shopCls];
+  if (!owns(shopCls)) {
+    const cost = CLASS_COST[shopCls];
+    shopBody.append(shopRow('cls', 'UNLOCK ' + C.name, C.role.toLowerCase() + ' · ' + C.desc, cost + ' ◆', () => buy(cost, () => META.cls.push(shopCls)), { disabled: commits < cost }));
+  } else {
+    shopBody.append(shopLabel(C.name + ' UPGRADES'));
+    for (const k in STATUP) {
+      const [nm, desc, max, base] = STATUP[k], key = shopCls + '.' + k, lv = META.lv[key] || 0, [label, fn, off] = tiers(lv, max, base, () => { META.lv[key] = lv + 1; });
+      shopBody.append(shopRow('lv.' + k, nm + ' ' + lv + '/' + max, desc, label, fn, { disabled: off }));
+    }
+    shopBody.append(shopLabel(C.name + ' ABILITIES'));
+    for (const k of ['skill', 'sup']) {
+      const [nm, desc] = ALTS[shopCls][k], key = shopCls + '.' + k, base = k === 'skill' ? C.skill : C.sup;
+      shopBody.append(META.alt[key]
+        ? shopRow('alt.' + k, nm + (k === 'skill' ? ' · skill' : ' · super'), desc + ' Replaces ' + base + ' while equipped.', META.eq[key] ? 'EQUIPPED' : 'EQUIP',
+          () => { META.eq[key] = !META.eq[key]; saveMeta(); renderShop(); renderClasses(); }, { pressed: !!META.eq[key] })
+        : shopRow('alt.' + k, nm + (k === 'skill' ? ' · skill' : ' · super'), desc + ' Replaces ' + base + '.', ALT_COST[k] + ' ◆',
+          () => buy(ALT_COST[k], () => { META.alt[key] = META.eq[key] = true; }), { disabled: commits < ALT_COST[k] }));
+    }
+  }
+  shopBody.append(shopLabel('PERKS · ALL CLASSES'));
+  for (const k in PERKS) {
+    const [nm, desc, max, base] = PERKS[k], lv = META.perk[k] || 0, [label, fn, off] = tiers(lv, max, base, () => { META.perk[k] = lv + 1; });
+    shopBody.append(shopRow('perk.' + k, nm + ' ' + lv + '/' + max, desc, label, fn, { disabled: off }));
+  }
+  const f = focusId && shopBody.querySelector('[data-id="' + focusId + '"]');
+  if (f && !f.disabled) f.focus(); else if (focusId) (shopBody.querySelector('.shoprow button:not(:disabled)') || document.getElementById('shopdone')).focus();
+}
+function openShop() { shopCls = myClass; renderShop(); shopEl.hidden = false; (shopBody.querySelector('button:not(:disabled)') || document.getElementById('shopdone')).focus(); }
+function closeShop() { shopEl.hidden = true; renderClasses(); document.getElementById('openshop').focus(); }
+document.getElementById('openshop').onclick = openShop;
+document.getElementById('shopdone').onclick = closeShop;
+metaEl.checked = myMetaOnline;
+metaEl.onchange = () => { myMetaOnline = metaEl.checked; try { localStorage.setItem('coderot-metaonline', myMetaOnline ? '1' : '0'); } catch (_) {} };
 if (!netAvailable()) { document.getElementById('online').hidden = true; }
 const urlRoom = cleanCode(new URLSearchParams(location.search).get('room'));
 if (urlRoom) { codeEl.value = urlRoom; setMsg('Invited to room ' + urlRoom + '. Pick a class, then press JOIN.'); }

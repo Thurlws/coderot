@@ -12,7 +12,7 @@ const netAvailable = () => typeof Peer === 'function';
 function playerState() {
   return { n: nick, c: myColor, cls: me.cls, x: me.x | 0, y: me.y | 0, a: Math.round(me.a * 100) / 100, hp: me.hp, mh: me.mh, d: me.down ? 1 : 0,
     s: me.score | 0, f: me.firing ? 1 : 0, o: me.up.orbit, fw: me.pw.firewall > 0 ? 1 : 0, dk: me.pw.duck > 0 ? 1 : 0,
-    sh: CLASSES[me.cls].shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sk: mySkin, tu: turrets.map(t => [t.x | 0, t.y | 0]) };
+    sh: CLASSES[me.cls].shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sk: mySkin, tu: turrets.map(t => [t.x | 0, t.y | 0]), mi: minions.map(n => [n.x | 0, n.y | 0]), bc: beacons.map(b => [b.x | 0, b.y | 0]) };
 }
 function upsertOther(id, s) { // everything from the network is untrusted: clamp it
   if (!s || typeof s !== 'object') return;
@@ -24,6 +24,8 @@ function upsertOther(id, s) { // everything from the network is untrusted: clamp
   o.o = clamp(num(s.o), 0, 8); o.fw = !!s.fw; o.dk = !!s.dk; o.sh = clamp(num(s.sh, 1), 1, 14);
   o.sk = SKINS.some(k => k.id === s.sk) ? s.sk : 'none';
   o.n = String(s.n || 'DEV').slice(0, 12); o.cls = CLASSES[s.cls] ? s.cls : 'debugger'; o.col = PCOL[clamp(num(s.c), 0, PCOL.length - 1) | 0];
+  o.mi = Array.isArray(s.mi) ? s.mi.slice(0, 9).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
+  o.bc = Array.isArray(s.bc) ? s.bc.slice(0, 1).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
   o.tu = Array.isArray(s.tu) ? s.tu.slice(0, 2).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
 }
 
@@ -37,12 +39,12 @@ function encodeWorld() {
   const dp = []; for (const d of world.dep) dp.push(d.k, d.t <= 4 ? 1 : 0);
   for (const w of world.pows) if (!w.taken) p.push(w.id, PT.indexOf(w.type), w.x | 0, w.y | 0, Math.ceil(w.t));
   for (const x of world.shots) if (!x.hit) s.push(x.id, SHOTS.indexOf(x.k), x.x | 0, x.y | 0, x.vx | 0, x.vy | 0);
-  return { df: world.diff, mu: world.muts, as: world.autoskip ? 1 : 0, ph: world.phase === 'over' ? 1 : 0, wv: world.wave, run: world.run, nk: world.nk, hl: world.hl, ht: world.ht, nx: world.nx | 0, ny: world.ny | 0,
+  return { df: world.diff, mu: world.muts, as: world.autoskip ? 1 : 0, mt: world.meta ? 1 : 0, sw: world.sw, ph: world.phase === 'over' ? 1 : 0, wv: world.wave, run: world.run, nk: world.nk, hl: world.hl, ht: world.ht, nx: world.nx | 0, ny: world.ny | 0,
     bk: world.breakT > 0 ? 1 : 0, q: world.queue.length, i: world.nid, bm: world.bm, r, b, p, s, dp };
 }
 function applyWorld(w) {
   if (!w || typeof w !== 'object') return;
-  world.diff = DIFFS[w.df] ? w.df : 'normal'; world.muts = Array.isArray(w.mu) ? w.mu.filter(k => MUTS[k]).slice(0, MK.length) : []; world.autoskip = !!w.as;
+  world.diff = DIFFS[w.df] ? w.df : 'normal'; world.muts = Array.isArray(w.mu) ? w.mu.filter(k => MUTS[k]).slice(0, MK.length) : []; world.autoskip = !!w.as; world.meta = !!w.mt; world.sw = num(w.sw);
   world.phase = w.ph ? 'over' : 'play'; world.wave = num(w.wv); world.run = num(w.run); world.nk = num(w.nk); world.hl = num(w.hl); world.ht = String(w.ht || '');
   world.nx = num(w.nx, W / 2); world.ny = num(w.ny, H / 2); world.breakT = w.bk ? 1 : 0; world.nid = num(w.i, 1); world.bm = num(w.bm, 1) || 1;
   world.queue.length = clamp(num(w.q), 0, 500);

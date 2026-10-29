@@ -9,6 +9,7 @@ const TOUCH_BTN = {
   dash: { x: W - 245, y: H - 95, r: 40, label: 'DASH' }};
 
 addEventListener('keydown', e => {
+  if (!shopEl.hidden) { if (e.code === 'Escape') closeShop(); return; }
   const setOpen = !document.getElementById('settings').hidden;
   if (setOpen && e.code === 'Escape') { closeSettings(); return; }
   if (e.target.tagName === 'INPUT') { if (e.code === 'Enter' && e.target.id === 'code') document.getElementById('join').click(); return; }
@@ -27,6 +28,7 @@ addEventListener('keydown', e => {
   }
   if (e.code.startsWith('Digit') && me.offer) pickUpgrade(+e.code.slice(5) - 1);
   if (e.code === 'KeyX') closeOldestPopup();
+  if (e.code === 'KeyR') rerollUpgrades();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 function autoPause() {

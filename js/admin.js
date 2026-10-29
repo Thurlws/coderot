@@ -25,9 +25,9 @@ function admToggleBtn(key, label) { return admBtn(label + (ADM[key] ? ': ON' : '
 // ---------- actions ----------
 function admSetClass(k) {
   const K = CLASSES[k];
-  myClass = k; me.cls = k;
+  myClass = k; me.cls = k; me.m = metaLv(k, world.meta); me.alt = equipped(k); minions = [];
   for (const u in me.up) me.up[u] = Math.min(me.up[u], upgCap(k, u)); // respect the new class's caps
-  me.mh = K.hp + me.up.hp; me.hp = me.mh; me.down = false;
+  me.mh = K.hp + me.up.hp + me.m.hp; me.hp = me.mh; me.down = false;
   me.skillCd = 0; me.superT = 0; me.noCharge = 0; me.stress = 0;
   ring(me.x, me.y, 10, 300, .4, PCOL[myColor], 5); pop(me.x, me.y - 50, K.name, PCOL[myColor], 18);
 }
@@ -57,7 +57,7 @@ function admClearAll() { // every bug (bosses too), enemy shot, rot tile and pop
   pop(W / 2, H / 2, 'ALL CODEROT CLEARED', PAL.white, 22);
 }
 function admPow(type) { world.pows.push({ id: world.nid++, type, x: clamp(me.x + rand(-60, 60), 30, W - 30), y: clamp(me.y - 70, 80, H - 30), t: 30 }); }
-function admMaxUpgrades() { for (const k in UPG) me.up[k] = Math.max(me.up[k], Math.min(upgCap(me.cls, k), 3)); me.mh = CLASSES[me.cls].hp + me.up.hp; me.hp = me.mh; }
+function admMaxUpgrades() { for (const k in UPG) me.up[k] = Math.max(me.up[k], Math.min(upgCap(me.cls, k), 3)); me.mh = CLASSES[me.cls].hp + me.up.hp + me.m.hp; me.hp = me.mh; }
 
 function buildAdmin() {
   if (!adminMode) return;

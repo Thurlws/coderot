@@ -39,9 +39,19 @@ canvas.play { cursor: none; }
 #menu .col { display: grid; gap: 10px; align-content: start; min-width: 0; }
 @media (min-width: 860px) { #menu { grid-template-columns: 1.15fr 1fr; } }
 @media (max-width: 859px) { #menu { width: min(560px, calc(100% - 32px)); } }
+#shop { top: 50%; transform: translate(-50%, -50%); width: min(620px, calc(100% - 32px)); z-index: 10; border-color: rgba(93, 255, 168, .5); }
+#shop h2 small { font: 12px var(--mono); color: var(--gold); letter-spacing: 0; margin-left: 8px; }
+#shopbody { display: grid; gap: 6px; }
+#shopbody .label { margin-top: 8px; }
+.shoprow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(143, 138, 214, .15); }
+.shoprow b { font: 11px var(--disp); letter-spacing: .06em; }
+.shoprow span { display: block; font-size: 12px; color: var(--dim); margin-top: 3px; }
+.panel .shoprow button { padding: 8px 10px; font-size: 11px; min-width: 112px; }
+.panel .shoprow button:disabled { opacity: .4; cursor: not-allowed; }
+.panel .shoprow button[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
 #settings { top: 50%; transform: translate(-50%, -50%); width: min(440px, calc(100% - 32px)); z-index: 10; border-color: rgba(255, 210, 63, .5); }
 
-.classes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.classes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .panel .cls { display: grid; gap: 4px; padding: 10px 4px; color: var(--dim); border: 2px solid rgba(143, 138, 214, .35); text-align: center; }
 .panel .cls b { font: 11px var(--disp); color: var(--text); }
 .panel .cls span { font: 9px var(--disp); letter-spacing: .08em; }
@@ -61,6 +71,8 @@ canvas.play { cursor: none; }
 .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .wide { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .trio { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
+.quad { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px; }
+.panel .quad button { padding: 12px 4px; white-space: nowrap; }
 
 /* admin sandbox panel */
 #admin {
@@ -104,8 +116,8 @@ canvas.play { cursor: none; }
 .opt input[type="range"] { width: 100%; accent-color: var(--p1); }
 
 @media (max-width: 560px) {
-  .classes { grid-template-columns: repeat(3, 1fr); }
   .diffs { grid-template-columns: repeat(2, 1fr); }
   .duo, .trio { grid-template-columns: 1fr; }
+  .quad { grid-template-columns: 1fr 1fr; }
 }
 @media (max-height: 620px) { .panel { padding: 12px; gap: 7px; } }

@@ -2,8 +2,21 @@
 // The local player: class weapon, skill, super, dash, power-ups, upgrades, getting hurt, and reacting to world events.
 
 const myK = () => CLASSES[me.cls];
+// The equipped skill/super: the class default, or its shop alternative (ALTS) when bought + equipped.
+const altOf = k => me.alt[k] && ALTS[me.cls] ? ALTS[me.cls][k] : null;
+const skillName = () => altOf('skill') ? altOf('skill')[0] : myK().skill;
+const skillCdBase = () => altOf('skill') ? altOf('skill')[2] : myK().cd;
+const supName = () => altOf('sup') ? altOf('sup')[0] : myK().sup;
+const myDmg = () => (1 + .3 * me.up.dmg) * (1 + .12 * me.m.dmg); // in-run STRICT MODE x shop OPTIMIZER
+const loadTest = () => me.superT > 0 && me.supK === 'load';
+const timedSuper = (t, k) => { me.superT = me.superMax = t; me.supK = k; };
+const supOn = k => me.superT > 0 && me.supK === k;
 
 function hurt(src, gunk) {
+  if (supOn('debt')) { // TECH DEBT: the hit goes on the tab instead
+    me.debt = Math.min(10, me.debt + 1); me.inv = .5; ring(me.x, me.y, 30, -40, .3, PAL.rot, 4); pop(me.x, me.y - 44, 'DEBT +1', PAL.rot, 14); sfx(90, .15, 'square', .05);
+    return;
+  }
   me.hp--; me.inv = 1.3; me.chain = 0; shake = Math.max(shake, 14); flash = .7; flashCol = '255,40,80'; glitch = Math.max(glitch, .3);
   const a = Math.atan2(me.y - src.y, me.x - src.x); me.vx = Math.cos(a) * 650; me.vy = Math.sin(a) * 650;
   burst(me.x, me.y, PCOL[myColor], 18); sfx(150, .3, 'sawtooth', .1, 40);
@@ -34,18 +47,15 @@ function grabPow(w) {
 function fireSuper() {
   const K = myK(), x = me.x, y = me.y, col = PCOL[myColor];
   me.sup = 0; me.noCharge = { qa: 7, hacker: 2.5 }[me.cls] || 0; // kills made by a running super don't charge the next one
-  banner = { t: 1.8, big: K.sup, sub: K.supDesc };
+  banner = { t: 1.8, big: supName(), sub: altOf('sup') ? altOf('sup')[1] : K.supDesc };
   chroma = Math.max(chroma, .5); shake = Math.max(shake, 14);
-  if (me.cls === 'refactorer') { // the nuke
+  if (altOf('sup')) altSuper();
+  else if (me.cls === 'refactorer') { // the nuke
     const n = world.bugs.filter(b => !b.dead && b.type !== 'boss').length;
     me.score += n * 75; pop(x, y - 60, '+' + fmt(n * 75), PAL.gold, 22);
     if (isHost) doNuke(x, y); else pend.e.push(['n', x | 0, y | 0]);
   } else if (me.cls === 'debugger') {
-    for (let i = 0; i < 3; i++) ring(x, y, 10 + i * 40, 1300, .8, PAL.ice, 8 - i * 2);
-    flash = .6; flashCol = '143,227,255'; arp([1568, 1175, 784, 523], .07, 'triangle', .07);
-    for (const b of world.bugs) b.frz = b.type === 'boss' ? 2.5 : 5;
-    for (const s of world.shots) { s.hit = true; gone.set(s.id, T); burst(s.x, s.y, PAL.ice, 4); }
-    if (isHost) doHalt(); else pend.e.push(['h']);
+    halt(x, y);
   } else if (me.cls === 'hacker') {
     for (let i = 0; i < 36; i++) {
       const a = i / 36 * 6.283;
@@ -58,8 +68,81 @@ function fireSuper() {
     const id = failoverTarget();
     if (isHost) doFailover(id); else pend.e.push(['l', id]);
   } else if (me.cls === 'qa') {
-    me.superT = 6; ring(x, y, 10, 500, .5, PAL.gold, 6); arp([880, 1175, 1568, 2093], .05, 'square', .06);
+    timedSuper(6, 'load'); ring(x, y, 10, 500, .5, PAL.gold, 6); arp([880, 1175, 1568, 2093], .05, 'square', .06);
+  } else if (me.cls === 'devops') {
+    timedSuper(10, 'kube'); for (let i = 0; i < 6; i++) addMinion(10, true, 9);
+    ring(x, y, 10, 500, .5, col, 6); arp([392, 523, 659, 784], .05, 'square', .06);
   }
+}
+function halt(x, y) { // SYSTEM HALT / LOCKDOWN: freeze everything, delete enemy shots
+  for (let i = 0; i < 3; i++) ring(x, y, 10 + i * 40, 1300, .8, PAL.ice, 8 - i * 2);
+  flash = .6; flashCol = '143,227,255'; arp([1568, 1175, 784, 523], .07, 'triangle', .07);
+  for (const b of world.bugs) b.frz = b.type === 'boss' ? 2.5 : 5;
+  for (const s of world.shots) { s.hit = true; gone.set(s.id, T); burst(s.x, s.y, PAL.ice, 4); }
+  if (isHost) doHalt(); else pend.e.push(['h']);
+}
+function altShot(a, sp, o) { // a shot fired by an alt ability; o overrides damage, pierce, life...
+  bullets.push({ x: me.x, y: me.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: .9, col: PCOL[myColor], dmg: myDmg(), pierce: 0, bounce: 0, home: 0,
+    clean: .6, hits: new Set(), mine: true, ...o, ...(o.dmg ? { dmg: o.dmg * myDmg() } : {}) });
+}
+// DEVOPS containers: local like turrets, they chase the nearest bug and chew on it. cap = most alive at once (oldest gets replaced).
+function addMinion(life, fast, cap) {
+  while (minions.length >= cap) minions.shift();
+  minions.push({ x: me.x + rand(-20, 20), y: me.y + rand(-20, 20), t: life, fast });
+}
+function aimTarget() { // the bug closest to where you're aiming (WATCH EXPRESSION, ROUTE TRAFFIC)
+  let best = null, bs = Infinity;
+  for (const b of world.bugs) {
+    if (!targetable(b)) continue;
+    const s = Math.hypot(b.x - me.x, b.y - me.y) * (1 + 3 * Math.abs(angleDiff(me.a, Math.atan2(b.y - me.y, b.x - me.x))));
+    if (s < bs) { bs = s; best = b; }
+  }
+  return best;
+}
+function altSkill() {
+  const x = me.x, y = me.y, col = PCOL[myColor];
+  if (me.cls === 'debugger') { // WATCH EXPRESSION
+    const b = aimTarget(); if (!b) { me.skillCd = .5; return pop(x, y - 30, 'NOTHING TO WATCH', PAL.dim, 12); }
+    me.watch = { id: b.id, t: T + 6 }; ring(b.x, b.y, b.r + 30, -40, .4, PAL.ice, 3); pop(b.x, b.y - b.r - 20, 'WATCHED · 2x', PAL.ice, 14);
+  }
+  if (me.cls === 'refactorer') { // EXTRACT METHOD: the opposite of REWRITE
+    ring(x, y, 320, -700, .4, PAL.white, 6); shake = Math.max(shake, 10);
+    if (isHost) doExtract(x, y); else pend.e.push(['x', x | 0, y | 0]);
+  }
+  if (me.cls === 'hacker') { // BACKDOOR: plant, then recall
+    if (me.door && me.door.t > T) {
+      ring(x, y, 30, -60, .3, col); me.x = me.door.x; me.y = me.door.y; me.vx = me.vy = 0; me.inv = Math.max(me.inv, .5); me.trail = []; me.door = null;
+      ring(me.x, me.y, 6, 300, .3, col); sfx(300, .12, 'sawtooth', .05, 2400);
+    } else { me.door = { x, y, t: T + 8 }; me.skillCd = .4; pop(x, y - 30, 'BACKDOOR PLANTED · E TO RETURN', col, 12); }
+  }
+  if (me.cls === 'sysadmin') { beacons = [{ x, y, t: 12 }]; ring(x, y, 6, 240, .5, '#5dffa8'); } // HEALTH CHECK
+  if (me.cls === 'qa') { me.edge = true; pop(x, y - 30, 'NEXT SHOT: EDGE CASE', PAL.gold, 12); } // EDGE CASE
+  if (me.cls === 'devops') { // ROUTE TRAFFIC
+    const b = aimTarget(); if (!b || !minions.length) { me.skillCd = .5; return pop(x, y - 30, minions.length ? 'NO TARGET' : 'NO CONTAINERS', PAL.dim, 12); }
+    me.route = { id: b.id, t: T + 4 }; ring(b.x, b.y, b.r + 30, -40, .4, col, 3);
+  }
+  ring(x, y, 10, 300, .35, col, 4); sfx(500, .12, 'square', .05, 1400);
+}
+function altSuper() {
+  const x = me.x, y = me.y, col = PCOL[myColor];
+  if (me.cls === 'debugger') { // REWIND: only undoes the last 4s, so it saves you from a mistake rather than healing up
+    const h = me.hist[0] || { x, y, hp: me.hp };
+    ring(x, y, 40, -80, .4, PAL.ice, 4); me.x = h.x; me.y = h.y; me.vx = me.vy = 0; me.hp = Math.max(me.hp, h.hp); me.inv = Math.max(me.inv, 1);
+    me.trail = []; me.hist = []; flash = .3; flashCol = '143,227,255'; glitch = Math.max(glitch, .5);
+  }
+  if (me.cls === 'refactorer') { timedSuper(8, 'debt'); me.debt = 0; }
+  if (me.cls === 'hacker') timedSuper(7, 'mitm');
+  if (me.cls === 'sysadmin') { if (isHost) doShieldAll(); else pend.e.push(['m']); }
+  if (me.cls === 'qa') timedSuper(7, 'smoke');
+  if (me.cls === 'devops') { // CHAOS MONKEY
+    for (const n of minions) {
+      ring(n.x, n.y, 6, 260, .35, col, 4); burst(n.x, n.y, col, 14, true);
+      for (const b of world.bugs) if (targetable(b) && Math.hypot(b.x - n.x, b.y - n.y) < 110 + b.r) damageBug(b, 5 * myDmg());
+      discCells(n.x, n.y, 110, k => cleanCell(k, 1));
+    }
+    minions = []; for (let i = 0; i < 3; i++) addMinion(20, false, 3); boom(.5, .25);
+  }
+  ring(x, y, 10, 500, .5, col, 6); arp([880, 1175, 1568, 2093], .05, 'square', .06);
 }
 const myNetId = () => (online() ? peer.id : 'me');
 // FAILOVER saves one teammate: a downed one first (closest), otherwise the most hurt. Alone, it heals you.
@@ -97,22 +180,15 @@ function autoGun(x, y, col, range, dmg = 1) { // turrets and the duck: shoot the
 }
 function shoot(I) {
   const K = myK();
-  let a = Math.atan2(me.fy, me.fx);
-  if (!I.aim) { // keyboard-only: light aim assist inside a narrow cone
-    let bd = 640;
-    for (const b of world.bugs) {
-      if (!targetable(b)) continue;
-      const d = Math.hypot(b.x - me.x, b.y - me.y), ba = Math.atan2(b.y - me.y, b.x - me.x);
-      let da = Math.abs(ba - a); if (da > Math.PI) da = 2 * Math.PI - da;
-      if (da < .3 && d < bd) { bd = d; a = ba; }
-    }
-  }
-  const n = K.shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sp = K.spread || .08, loadTest = me.superT > 0;
+  const a = Math.atan2(me.fy, me.fx);
+  const n = K.shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sp = K.spread || .08, lt = loadTest(), edge = me.edge;
+  me.edge = false;
   for (let i = 0; i < n; i++) {
+    const e = edge && i === (n - 1) >> 1; // EDGE CASE: the middle shot
     const s = (i - (n - 1) / 2) * sp + (me.cls === 'refactorer' ? rand(-.04, .04) : 0), v = K.bspeed * (me.cls === 'refactorer' ? rand(.85, 1.1) : 1);
     bullets.push({ x: me.x + Math.cos(a) * 18, y: me.y + Math.sin(a) * 18, vx: Math.cos(a + s) * v, vy: Math.sin(a + s) * v, life: K.life * (1 + .3 * me.up.range),
-      col: PCOL[myColor], dmg: K.dmg * (1 + .3 * me.up.dmg), pierce: K.pierce + me.up.pierce + (loadTest ? 99 : 0), bounce: me.up.bounce, home: me.up.homing,
-      clean: K.clean, rail: me.cls === 'qa', hits: new Set(), mine: true });
+      col: e ? PAL.gold : PCOL[myColor], dmg: K.dmg * myDmg() * (e ? 6 : 1), pierce: K.pierce + me.up.pierce + (lt || e ? 99 : 0), bounce: me.up.bounce, home: me.up.homing,
+      clean: K.clean, rail: me.cls === 'qa', wide: e ? 14 : 0, hits: new Set(), mine: true });
   }
   const mx = me.x + Math.cos(a) * 22, my = me.y + Math.sin(a) * 22, heavy = me.cls === 'qa' || me.cls === 'refactorer';
   parts.push({ x: mx, y: my, vx: 0, vy: 0, life: .07, max: .07, col: PCOL[myColor], big: heavy ? 22 : 13 }); // muzzle bloom
@@ -126,10 +202,10 @@ function shoot(I) {
 }
 function useSkill() {
   const K = myK(), x = me.x, y = me.y;
-  me.skillCd = K.cd * Math.pow(.8, me.up.skill);
-  if (me.syn.macro) me.sup = Math.min(100, me.sup + 12);
-  pop(x, y - 50, K.skill, PCOL[myColor], 18);
-  if (me.cls === 'debugger') {
+  me.skillCd = skillCdBase() * Math.pow(.8, me.up.skill);
+  pop(x, y - 50, skillName(), PCOL[myColor], 18);
+  if (altOf('skill')) altSkill();
+  else if (me.cls === 'debugger') {
     ring(x, y, 20, 700, .5, PAL.ice, 6); flash = .25; flashCol = '143,227,255'; arp([1568, 1047, 784], .04, 'triangle', .06);
     for (const b of world.bugs) if (!b.dead && Math.hypot(b.x - x, b.y - y) < 320) b.frz = 3;
     if (isHost) doFreeze(x, y); else pend.e.push(['f', x | 0, y | 0]);
@@ -153,7 +229,16 @@ function useSkill() {
     ring(x, y, 6, 160, .4, '#5dffa8'); arp([392, 523, 784], .05, 'square', .05);
   } else if (me.cls === 'qa') {
     me.stress = 3; ring(x, y, 10, 300, .4, PAL.gold, 4); arp([880, 1175, 1568], .04, 'square', .05);
+  } else if (me.cls === 'devops') {
+    addMinion(20, false, 3); ring(x, y, 6, 160, .4, PCOL[myColor]); arp([392, 523, 784], .05, 'square', .05);
   }
+  if (me.syn.macro && me.skillCd > 1) me.sup = Math.min(100, me.sup + 12); // not for quick re-casts (BACKDOOR plant, no target)
+}
+// SMOKE TEST: a kill you made fires a rail from the corpse at the next nearest bug, which can chain on
+function smokeChain(b) {
+  if (!supOn('smoke')) return;
+  const n = nearest(b, world.bugs.filter(o => o !== b && targetable(o) && Math.hypot(o.x - b.x, o.y - b.y) < 500));
+  if (n) altShot(Math.atan2(n.y - b.y, n.x - b.x), 1500, { x: b.x, y: b.y, rail: true, pierce: 1, life: .5, dmg: 3 });
 }
 
 // ---------- per-frame update ----------
@@ -169,7 +254,7 @@ function updMe(dt, I) {
   const K = myK();
   me.inv -= dt; me.cd -= dt; me.dashCd -= dt; me.skillCd -= dt; me.stress -= dt; me.superT -= dt; me.noCharge -= dt; me.chainT -= dt;
   if (me.superT > 0) me.sup = 0; // no meter gain of any kind (boss kills, SUPER CELL, MACRO) while LOAD TEST runs, so supers can't stack
-  if (me.superT > 0 || (I.fire && !I.aim)) { // LOAD TEST or keyboard firing: auto-aim at the nearest bug (LOAD TEST also keeps firing)
+  if (loadTest() || (I.fire && !I.aim)) { // LOAD TEST or keyboard firing: auto-aim at the nearest bug (LOAD TEST also keeps firing)
     const tgt = nearest(me, world.bugs.filter(targetable));
     if (tgt) I = { ...I, ax: tgt.x - me.x, ay: tgt.y - me.y, aim: true, fire: true };
   }
@@ -189,7 +274,7 @@ function updMe(dt, I) {
     // SPAGHETTI PRIME: a noodle arm on you slows you and drags you toward the boss until you dash out
     me.tangleImm = (me.tangleImm || 0) - dt;
     const arm = me.tangleImm > 0 ? null : world.bugs.find(a => a.type === 'arm' && !a.dead && Math.hypot(a.x - me.x, a.y - me.y) < 26);
-    const sp = K.speed * (1 + .12 * me.up.speed) * (me.pw.coffee > 0 ? 1.25 : 1) * (arm ? .35 : 1), k = Math.min(1, dt * 12);
+    const sp = K.speed * (1 + .12 * me.up.speed) * (1 + .05 * me.m.speed) * (me.pw.coffee > 0 ? 1.25 : 1) * (arm ? .35 : 1), k = Math.min(1, dt * 12);
     me.vx += (mx * sp - me.vx) * k; me.vy += (my * sp - me.vy) * k;
     const boss = arm && world.bugs.find(x => x.id === arm.pid);
     if (boss) { const d = Math.hypot(boss.x - me.x, boss.y - me.y) || 1; me.x += (boss.x - me.x) / d * 120 * dt; me.y += (boss.y - me.y) / d * 120 * dt; hint('TANGLED · DASH TO BREAK FREE', BUG.arm.col); }
@@ -197,16 +282,16 @@ function updMe(dt, I) {
   if (I.dash && me.dashCd <= 0) {
     const dx = m > .1 ? mx : me.fx, dy = m > .1 ? my : me.fy, dn = Math.hypot(dx, dy) || 1;
     me.tangleImm = 1.2; // dashing rips free of noodle arms
-    me.dashT = .16; me.dashCd = .8 * Math.pow(.75, me.up.dash); me.inv = Math.max(me.inv, .3); me.vx = dx / dn * 980; me.vy = dy / dn * 980;
+    me.dashT = .16; me.dashCd = .8 * Math.pow(.75, me.up.dash) * Math.pow(.9, me.m.dash); me.inv = Math.max(me.inv, .3); me.vx = dx / dn * 980; me.vy = dy / dn * 980;
     for (const s of smudges) if (!s.popup) s.life -= 1.5; // dashing shakes splats loose and knocks out one popup
     closeOldestPopup();
     sfx(200, .15, 'sawtooth', .04, 900); ring(me.x, me.y, 8, 200, .25, PCOL[myColor]);
   }
   me.x = clamp(me.x + me.vx * dt, 16, W - 16); me.y = clamp(me.y + me.vy * dt, 16, H - 16);
-  if (I.fire && me.cd <= 0) { me.cd = K.fire / (1 + .2 * me.up.fire) / (me.pw.coffee > 0 ? 2 : 1) / (me.stress > 0 ? 3 : 1) / (me.superT > 0 ? 4 : 1); shoot(I); }
+  if (I.fire && me.cd <= 0) { me.cd = K.fire / (1 + .2 * me.up.fire) / (1 + .08 * me.m.fire) / (me.pw.coffee > 0 ? 2 : 1) / (me.stress > 0 ? 3 : 1) / (loadTest() ? 4 : 1); shoot(I); }
   me.firing = !!I.fire;
-  if (I.skill) { if (me.skillCd <= 0) useSkill(); else { pop(me.x, me.y - 40, K.skill + ' ' + Math.ceil(me.skillCd) + 's', PAL.dim, 12); sfx(120, .08, 'square', .03); } }
-  if (I.super) { if (me.sup >= 100) fireSuper(); else { pop(me.x, me.y - 40, K.sup + ' ' + Math.floor(me.sup) + '%', PAL.dim, 13); sfx(120, .08, 'square', .03); } }
+  if (I.skill) { if (me.skillCd <= 0) useSkill(); else { pop(me.x, me.y - 40, skillName() + ' ' + Math.ceil(me.skillCd) + 's', PAL.dim, 12); sfx(120, .08, 'square', .03); } }
+  if (I.super) { if (me.sup >= 100) fireSuper(); else { pop(me.x, me.y - 40, supName() + ' ' + Math.floor(me.sup) + '%', PAL.dim, 13); sfx(120, .08, 'square', .03); } }
 
   const shield = me.pw.firewall > 0;
   for (const b of world.bugs) {
@@ -228,12 +313,43 @@ function updMe(dt, I) {
     if (world.dep.some(d => d.k === c && d.t <= 4)) { hurt({ x: me.x, y: me.y + 1 }); hint('DEPRECATED TILES BURN · KEEP MOVING', PAL.red); }
   }
   for (const s of world.shots) {
+    if (!s.hit && supOn('mitm') && Math.hypot(s.x - me.x, s.y - me.y) < 90) { // MAN IN THE MIDDLE: the shot is ours now
+      s.hit = true; gone.set(s.id, T); if (!isHost) pend.e.push(['s', s.id]);
+      const t = nearest(s, world.bugs.filter(targetable));
+      altShot(t ? Math.atan2(t.y - s.y, t.x - s.x) : Math.atan2(-s.vy, -s.vx), 700, { x: s.x, y: s.y, home: 4, life: 1.5, dmg: 1.5 });
+      ring(s.x, s.y, 4, 120, .2, PCOL[myColor]); continue;
+    }
     if (s.hit || Math.hypot(s.x - me.x, s.y - me.y) > (shield ? 32 : 13)) continue;
     s.hit = true; gone.set(s.id, T);
     if (!isHost) pend.e.push(['s', s.id]);
     if (shield) ring(s.x, s.y, 4, 120, .2, '#7aa8ff');
     else if (me.inv <= 0) hurt(s, s.k === 'ad' ? 3 : 0);
   }
+  if (me.supK === 'debt' && me.superT <= 0) { // TECH DEBT comes due: pay it all back at once
+    me.supK = ''; const r = 280, dmg = (4 + 3 * me.debt) * myDmg();
+    for (const b of world.bugs) if (targetable(b) && Math.hypot(b.x - me.x, b.y - me.y) < r + b.r) damageBug(b, dmg);
+    for (let i = 0; i < 3; i++) ring(me.x, me.y, 10 + i * 30, 900, .5, i % 2 ? PAL.rot : PAL.white, 8 - i * 2);
+    shake = Math.max(shake, 20 + me.debt * 2); boom(.6, .3); pop(me.x, me.y - 50, 'PAID BACK x' + me.debt, PAL.rot, 18);
+  }
+  me.hist.push({ x: me.x, y: me.y, hp: me.hp, t: T }); while (me.hist.length && T - me.hist[0].t > 4) me.hist.shift(); // REWIND
+  let inBeacon = false; // HEALTH CHECK beacons: yours and teammates'
+  for (const b of beacons) b.t -= dt;
+  beacons = beacons.filter(b => b.t > 0);
+  for (const b of [...beacons, ...[...others.values()].flatMap(o => o.bc || [])]) if (Math.hypot((b.x ?? b[0]) - me.x, (b.y ?? b[1]) - me.y) < 120) inBeacon = true;
+  if (!inBeacon) me.healT = 3;
+  else if ((me.healT -= dt) <= 0) { me.healT = myK().halfHeal ? 6 : 3; if (me.hp < me.mh) { me.hp++; pop(me.x, me.y - 40, '+1 HP', '#5dffa8', 14); } }
+  const tg = minions.length ? world.bugs.filter(targetable) : [];
+  const routed = me.route && me.route.t > T && world.bugs.find(b => b.id === me.route.id && targetable(b)); // ROUTE TRAFFIC
+  minions.forEach((n, i) => { // DEVOPS containers: hunt the nearest bug near you, otherwise orbit you
+    n.t -= dt;
+    const b = routed || nearest(n, tg), hunt = b && (routed || Math.hypot(b.x - me.x, b.y - me.y) < 600), oa = T * 2.5 + i * 6.283 / minions.length;
+    const gx = hunt ? b.x : me.x + Math.cos(oa) * 62, gy = hunt ? b.y : me.y + Math.sin(oa) * 62;
+    const d = Math.hypot(gx - n.x, gy - n.y) || 1, step = Math.min(d, (n.fast || routed ? 460 : 300) * dt);
+    n.x += (gx - n.x) / d * step; n.y += (gy - n.y) / d * step;
+    if (hunt && Math.hypot(b.x - n.x, b.y - n.y) < b.r + 12) damageBug(b, dt * (n.fast ? 5 : 2.5) * (routed ? 2 : 1) * myDmg());
+    cleanCell(ci(n.x, n.y), dt * 2);
+  });
+  minions = minions.filter(n => n.t > 0);
   for (let i = 0; i < me.up.orbit; i++) {
     const a = T * 3 + i * 6.283 / me.up.orbit, dx = me.x + Math.cos(a) * 58, dy = me.y + Math.sin(a) * 58;
     for (const b of world.bugs) if (targetable(b) && Math.hypot(b.x - dx, b.y - dy) < b.r + 9) damageBug(b, dt * (me.syn.cron ? 14 : 7));
@@ -281,7 +397,7 @@ function updBullets(dt) {
     if (me.up.clean && c >= 0) for (const d of [-1, 1, -COLS, COLS]) { const n = c + d; if (n >= 0 && n < NC && Math.abs(n % COLS - c % COLS) <= 1) cleanCell(n, .25 * me.up.clean); }
     for (let i = world.bugs.length - 1; i >= 0; i--) { // newest first, so boss parts (QR code, pillars) beat the boss body
       const b = world.bugs[i];
-      if (b.dead || ghostly(b) || s.hits.has(b.id) || (b.x - s.x) ** 2 + (b.y - s.y) ** 2 > (b.r + 5) ** 2) continue;
+      if (b.dead || ghostly(b) || s.hits.has(b.id) || (b.x - s.x) ** 2 + (b.y - s.y) ** 2 > (b.r + 5 + (s.wide || 0)) ** 2) continue;
       s.hits.add(b.id); damageBug(b, s.dmg);
       if (me.syn.types) s.dmg *= 1.25;
       if (b.type !== 'boss' && !BUG[b.type].part) { b.vx += s.vx * .06; b.vy += s.vy * .06; }
@@ -305,6 +421,10 @@ function offerUpgrades() {
 }
 // The synergy this pick would complete, if any (for the upgrade card and pickUpgrade)
 const synFrom = k => Object.keys(SYN).find(s => !me.syn[s] && SYN[s].need.includes(k) && SYN[s].need.every(n => me.up[n] + (n === k) >= SYN_LV));
+function rerollUpgrades() { // GIT STASH perk
+  if (!me.offer || me.rerolls <= 0) return;
+  me.rerolls--; me.offer = null; offerUpgrades(); sfx(700, .08, 'triangle', .05, 1100);
+}
 function pickUpgrade(i) {
   if (!me.offer || !me.offer[i]) return;
   const k = me.offer[i], syn = synFrom(k); me.up[k]++; me.picks--; me.offer = null;
@@ -318,8 +438,12 @@ function pickUpgrade(i) {
   offerUpgrades();
 }
 function syncLocal() {
-  if (world.run !== seen.run) { seen.run = world.run; seen.wave = 0; seen.nk = world.nk; seen.hl = world.hl; seen.bk = 0; seen.cleared = false; me = mkMe(); turrets = []; smudges = []; if (mut('glass')) me.hp = me.mh = 1; }
+  if (world.run !== seen.run) { seen.run = world.run; seen.wave = 0; seen.nk = world.nk; seen.hl = world.hl; seen.bk = 0; seen.cleared = false; seen.sw = world.sw; me = mkMe(); turrets = []; minions = []; beacons = []; smudges = []; if (mut('glass')) me.hp = me.mh = 1; }
   if (world.nk !== seen.nk) { seen.nk = world.nk; nukeFx(world.nx, world.ny); }
+  if (world.sw !== seen.sw) { // MAINTENANCE WINDOW from any sysadmin in the room
+    seen.sw = world.sw; me.pw.firewall = Math.max(me.pw.firewall || 0, 6);
+    ring(me.x, me.y, 10, 300, .5, '#7aa8ff', 5); pop(me.x, me.y - 50, 'MAINTENANCE WINDOW · SHIELDED', '#7aa8ff', 14);
+  }
   if (world.hl !== seen.hl) {
     seen.hl = world.hl;
     const o = others.get(world.ht);
