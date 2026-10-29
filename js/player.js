@@ -168,6 +168,7 @@ function updMe(dt, I) {
   }
   const K = myK();
   me.inv -= dt; me.cd -= dt; me.dashCd -= dt; me.skillCd -= dt; me.stress -= dt; me.superT -= dt; me.noCharge -= dt; me.chainT -= dt;
+  if (me.superT > 0) me.sup = 0; // no meter gain of any kind (boss kills, SUPER CELL, MACRO) while LOAD TEST runs, so supers can't stack
   if (me.superT > 0 || (I.fire && !I.aim)) { // LOAD TEST or keyboard firing: auto-aim at the nearest bug (LOAD TEST also keeps firing)
     const tgt = nearest(me, world.bugs.filter(targetable));
     if (tgt) I = { ...I, ax: tgt.x - me.x, ay: tgt.y - me.y, aim: true, fire: true };
