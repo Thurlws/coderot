@@ -748,8 +748,7 @@ function drawHUD(t) {
   }
   const boss = bossAlive();
   if (world.autoskip && !boss && !world.breakT) {
-    const left = world.queue.length ? 'AUTO-SKIP · SPAWNING' : 'AUTO-SKIP · NEXT WAVE IN ' + Math.max(0, Math.ceil(world.waveT)) + 's';
-    txt(left, W / 2, 80, 12, world.waveT < 6 && !world.queue.length && Math.floor(t * 4) % 2 ? PAL.red : PAL.gold, DISP, 'center', .85);
+    txt('WAVE SKIP ON · NEXT WAVE WHEN SPAWNING ENDS', W / 2, 80, 12, PAL.gold, DISP, 'center', .85);
   }
   if (boss) {
     const bw2 = 640, x = W / 2 - bw2 / 2;
@@ -844,7 +843,8 @@ function drawOver(t) {
   txt('SYSTEM ROTTED', W / 2 - 4 + gx, 150, 84, PCOL[0]); txt('SYSTEM ROTTED', W / 2 + 4 - gx, 152, 84, PCOL[1]);
   X.globalCompositeOperation = 'source-over';
   txt('SYSTEM ROTTED', W / 2, 150, 84, PAL.rot);
-  txt('> crashed on wave ' + world.wave + ' (' + waveName(world.wave).toLowerCase() + ') on ' + dif().name.toLowerCase() + (world.autoskip ? ' + auto-skip' : ''), W / 2, 196, 17, PAL.dim, MONO);
+  txt('> crashed on wave ' + world.wave + ' (' + waveName(world.wave).toLowerCase() + ') on ' + dif().name.toLowerCase() + (world.autoskip ? ' + wave skip' : ''), W / 2, 196, 17, PAL.dim, MONO);
+  if (!adminMode) txt('+' + fmt(runCommits) + ' COMMITS · ' + fmt(commits) + ' total', W / 2, 228, 15, PCOL[3], DISP);
   const list = scoreList();
   list.forEach((p, i) => {
     const y = 262 + i * 34;
@@ -870,6 +870,7 @@ function drawPause() {
   button(W / 2 + 10, H / 2 - 10, 220, 56, online() ? 'LEAVE ROOM' : 'QUIT', PCOL[1], () => toMenu());
   button(W / 2 - 230, H / 2 + 60, online() ? 220 : 460, 50, 'SETTINGS', PAL.gold, openSettings);
   if (online()) button(W / 2 + 10, H / 2 + 60, 220, 50, copiedT > T ? 'LINK COPIED' : 'COPY INVITE', PCOL[3], copyInvite);
+  if (isHost) button(W / 2 - 230, H / 2 + 124, 460, 50, 'WAVE SKIP: ' + (world.autoskip ? 'ON · points x' + AUTO_SKIP_SCORE : 'OFF'), world.autoskip ? PAL.gold : PAL.dim, () => setAutoSkip(!world.autoskip));
 }
 function draw(t) {
   uiButtons = [];

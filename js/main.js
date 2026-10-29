@@ -166,7 +166,11 @@ if (urlRoom) { codeEl.value = urlRoom; setMsg('Invited to room ' + urlRoom + '. 
 renderClasses(); renderDiffs(); renderExtras();
 const autoSkipEl = document.getElementById('autoskip');
 autoSkipEl.checked = myAutoSkip;
-autoSkipEl.onchange = () => { myAutoSkip = autoSkipEl.checked; try { localStorage.setItem('coderot-autoskip', myAutoSkip ? '1' : '0'); } catch (_) {} };
+function setAutoSkip(on) { // menu checkbox + pause-menu toggle; mid-run it changes the live room (host only)
+  myAutoSkip = autoSkipEl.checked = on; if (mode === 'game' && isHost) world.autoskip = on;
+  try { localStorage.setItem('coderot-autoskip', on ? '1' : '0'); } catch (_) {}
+}
+autoSkipEl.onchange = () => setAutoSkip(autoSkipEl.checked);
 
 // ---------- main loop ----------
 function update(dt) {

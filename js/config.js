@@ -138,10 +138,10 @@ const SHAPES = { // ship outlines, nose pointing +x
 // Difficulty multipliers. The host's pick applies to the whole room.
 // hp/sp = enemy health/speed, count = enemies per wave, rot = rot spread + breeding, fire = enemy attack cooldown, score = points.
 const DIFFS = {
-  easy: { name: 'EASY', desc: 'Slower, weaker bugs and lazy rot. Points x0.75.', hp: .7, sp: .85, count: .75, rot: .6, fire: 1.4, score: .75, col: '#5dffa8' },
-  normal: { name: 'NORMAL', desc: 'The intended experience.', hp: 1, sp: 1, count: 1, rot: 1, fire: 1, score: 1, col: '#3ef0ff' },
-  hard: { name: 'HARD', desc: 'Tougher, faster, more bugs. Points x1.5.', hp: 1.35, sp: 1.12, count: 1.3, rot: 1.35, fire: .75, score: 1.5, col: '#ff9f43' },
-  nightmare: { name: 'NIGHTMARE', desc: 'Prod is on fire. Points x2.2.', hp: 1.8, sp: 1.25, count: 1.6, rot: 1.7, fire: .55, score: 2.2, col: '#ff3b5c' }};
+  easy: { name: 'EASY', desc: 'Slower, weaker bugs and lazy rot. Points x0.75.', hp: .85, sp: .92, count: .9, rot: .75, fire: 1.2, score: .75, col: '#5dffa8' },
+  normal: { name: 'NORMAL', desc: 'The intended experience.', hp: 1.2, sp: 1.06, count: 1.2, rot: 1.15, fire: .85, score: 1, col: '#3ef0ff' },
+  hard: { name: 'HARD', desc: 'Tougher, faster, more bugs. Points x1.5.', hp: 1.65, sp: 1.18, count: 1.55, rot: 1.5, fire: .62, score: 1.5, col: '#ff9f43' },
+  nightmare: { name: 'NIGHTMARE', desc: 'Prod is on fire. Points x2.2.', hp: 2.3, sp: 1.32, count: 1.95, rot: 1.9, fire: .45, score: 2.2, col: '#ff3b5c' }};
 const DK = Object.keys(DIFFS);
 // Mutators: the host's picks apply to the whole room and stack. score multiplies points.
 const MUTS = {
@@ -158,7 +158,8 @@ const SKINS = [
   { id: 'halo', name: 'NEON HALO', need: 'reach wave 10', ok: s => s.wave >= 10 },
   { id: 'rainbow', name: 'RGB TRAIL', need: '1,000 total kills', ok: s => s.kills >= 1000 },
   { id: 'gold', name: 'GOLD PLATING', need: 'reach wave 10 on NIGHTMARE', ok: s => s.nightmare >= 10 }];
-const AUTO_SKIP_T = 30, AUTO_SKIP_SCORE = 1.25; // auto-skip: next wave every 30s even if bugs remain (never mid-boss)
+const AUTO_SKIP_SCORE = 1.25; // wave skip: the next wave starts as soon as the current one stops spawning (never mid-boss)
+const WAVE_HP = .06; // every bug gets +6% HP per wave, so late waves need upgrades
 
 const WAVES = ['HELLO WORLD', 'NULL POINTER', 'MERGE CONFLICT', 'MEMORY LEAK', null, 'RACE CONDITION', 'FRIDAY DEPLOY',
   'PROD IS DOWN', 'SPAGHETTI', null, 'NPM INSTALL', 'IT WORKED YESTERDAY'];

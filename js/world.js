@@ -19,11 +19,11 @@ function cleanCell(k, amt) { // returns how rotten the cell was; clients also qu
 // ---------- enemies ----------
 const isPart = b => !!BUG[b.type].part;
 const maxBugs = () => online() ? 70 : 90;
-const bossHp = () => Math.round((260 + 180 * (Math.max(1, Math.floor(world.wave / 5)) - 1)) * (1 + .6 * others.size) * dif().hp);
+const bossHp = () => Math.round((320 + 230 * (Math.max(1, Math.floor(world.wave / 5)) - 1)) * (1 + .6 * others.size) * dif().hp);
 function mkBug(type, x, y, id, kind) {
   const D = BUG[type];
   let hp = D.hp + (type === 'seg' ? Math.floor(world.wave / 3) * 4 : 0) + (type === 'leak' ? Math.floor(world.wave / 4) * 2 : 0);
-  hp = type === 'boss' ? world.bm : Math.max(1, Math.round(hp * dif().hp * (mut('loot') ? 1.25 : 1) * 10) / 10);
+  hp = type === 'boss' ? world.bm : Math.max(1, Math.round(hp * dif().hp * (1 + WAVE_HP * Math.max(0, world.wave - 1)) * (mut('loot') ? 1.25 : 1) * 10) / 10);
   return { id, type, x, y, tx: x, ty: y, vx: 0, vy: 0, r: D.r, hp, mhp: hp, sp: D.sp * dif().sp * (type === 'boss' ? 1 : (1 + world.wave * .03) * (mut('turbo') ? 1.3 : 1)),
     ph: rand(0, 9), hit: 0, dead: false, cd: rand(1.2, 2.5), act: 0, st: 0, cx: 0, cy: 0, frz: 0, rev: false, age: 0, aux: 0, stn: 0, pid: 0,
     kind: type === 'boss' ? (kind ?? bossIdx(world.wave)) : 0 }; // kind = which BOSSES entry
@@ -170,8 +170,8 @@ function nextWave() {
   const add = (t, n) => { for (let i = 0; i < Math.round(n); i++) world.queue.push(t); };
   if (isBossWave(w)) { add('crawl', 4 * mul); add('fork', 2 * mul); add('adware', 1 + w / 10); }
   else {
-    add('crawl', (4 + w * 2.5) * mul);
-    if (w >= 2) { add('zip', w * 1.6 * mul); add('fork', (w - 1) * .8 * mul); }
+    add('crawl', (5 + w * 3) * mul);
+    if (w >= 2) { add('zip', w * 1.9 * mul); add('fork', (w - 1) * .8 * mul); }
     if (w >= 3) { add('adware', Math.min(6, (w - 2) * .7) * mul); add('seg', Math.floor((w - 1) / 3) * (others.size > 1 ? 1.5 : 1)); }
     if (w >= 4) { add('leak', Math.min(4, (w - 3) * .5) * mul); add('trojan', Math.min(4, (w - 3) * .6)); }
     if (w >= 11) add('cache', Math.min(4, (w - 10) * .6) * mul); // late-game elites
@@ -180,7 +180,7 @@ function nextWave() {
   }
   shuffle(world.queue);
   if (isBossWave(w)) world.queue.push('boss'); // pop() takes from the end, so the boss arrives first
-  world.spawnT = 2; world.waveT = AUTO_SKIP_T;
+  world.spawnT = 2;
 }
 function startRun() {
   world.run++; world.diff = myDiff; world.muts = myMuts.slice(); world.autoskip = myAutoSkip; world.wave = 0; world.bugs = []; world.pows = []; world.shots = []; world.dep = [];
@@ -197,7 +197,7 @@ function hostUpdate(dt) {
   world.pows = world.pows.filter(w => w.t > 0 && !w.taken);
   if (world.phase !== 'play') { for (let k = 0; k < NC; k++) rot[k] = Math.max(0, rot[k] - dt * .2); return; }
   if (!admHoldSpawns() && world.queue.length && (world.spawnT -= dt) <= 0) {
-    world.spawnT = Math.max(.18, .9 - world.wave * .06) / (1 + .3 * others.size) / (mut('turbo') ? 1.4 : 1);
+    world.spawnT = Math.max(.14, .8 - world.wave * .06) / (1 + .3 * others.size) / (mut('turbo') ? 1.4 : 1);
     spawnBug(world.queue.pop());
   }
   updRot(dt); calcRot();
@@ -206,7 +206,7 @@ function hostUpdate(dt) {
   if (!world.breakT && !world.queue.length && !world.bugs.length && !deaths.length) { // a dying boss finishes its show first
     world.breakT = 3; world.shots = []; for (let k = 0; k < NC; k++) rot[k] *= .5; }
   if (world.breakT && (world.breakT -= dt) <= 0) { world.breakT = 0; nextWave(); }
-  else if (world.autoskip && !world.breakT && !world.queue.length && !world.bugs.some(b => b.type === 'boss') && (world.waveT -= dt) <= 0) nextWave(); // leftovers stay
+  else if (world.autoskip && !world.breakT && !world.queue.length && !world.bugs.some(b => b.type === 'boss')) nextWave(); // leftovers stay
 }
 
 // ---------- kills, damage and area effects ----------

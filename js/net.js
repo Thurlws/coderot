@@ -37,12 +37,12 @@ function encodeWorld() {
   const dp = []; for (const d of world.dep) dp.push(d.k, d.t <= 4 ? 1 : 0);
   for (const w of world.pows) if (!w.taken) p.push(w.id, PT.indexOf(w.type), w.x | 0, w.y | 0, Math.ceil(w.t));
   for (const x of world.shots) if (!x.hit) s.push(x.id, SHOTS.indexOf(x.k), x.x | 0, x.y | 0, x.vx | 0, x.vy | 0);
-  return { df: world.diff, mu: world.muts, as: world.autoskip ? 1 : 0, wt: Math.ceil(world.waveT), ph: world.phase === 'over' ? 1 : 0, wv: world.wave, run: world.run, nk: world.nk, hl: world.hl, ht: world.ht, nx: world.nx | 0, ny: world.ny | 0,
+  return { df: world.diff, mu: world.muts, as: world.autoskip ? 1 : 0, ph: world.phase === 'over' ? 1 : 0, wv: world.wave, run: world.run, nk: world.nk, hl: world.hl, ht: world.ht, nx: world.nx | 0, ny: world.ny | 0,
     bk: world.breakT > 0 ? 1 : 0, q: world.queue.length, i: world.nid, bm: world.bm, r, b, p, s, dp };
 }
 function applyWorld(w) {
   if (!w || typeof w !== 'object') return;
-  world.diff = DIFFS[w.df] ? w.df : 'normal'; world.muts = Array.isArray(w.mu) ? w.mu.filter(k => MUTS[k]).slice(0, MK.length) : []; world.autoskip = !!w.as; world.waveT = num(w.wt);
+  world.diff = DIFFS[w.df] ? w.df : 'normal'; world.muts = Array.isArray(w.mu) ? w.mu.filter(k => MUTS[k]).slice(0, MK.length) : []; world.autoskip = !!w.as;
   world.phase = w.ph ? 'over' : 'play'; world.wave = num(w.wv); world.run = num(w.run); world.nk = num(w.nk); world.hl = num(w.hl); world.ht = String(w.ht || '');
   world.nx = num(w.nx, W / 2); world.ny = num(w.ny, H / 2); world.breakT = w.bk ? 1 : 0; world.nid = num(w.i, 1); world.bm = num(w.bm, 1) || 1;
   world.queue.length = clamp(num(w.q), 0, 500);

@@ -31,7 +31,7 @@ try { const s = JSON.parse(localStorage.getItem('coderot-settings') || '{}'); fo
 const saveSettings = () => { try { localStorage.setItem('coderot-settings', JSON.stringify(SET)); } catch (_) {} };
 
 // The authoritative world lives on the host (or locally in solo); clients mirror it from snapshots.
-const world = { diff: 'normal', muts: [], autoskip: false, waveT: 0, phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, ht: '', nx: W / 2, ny: H / 2, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 };
+const world = { diff: 'normal', muts: [], autoskip: false, phase: 'wait', wave: 0, run: 0, nk: 0, hl: 0, ht: '', nx: W / 2, ny: H / 2, bugs: [], pows: [], shots: [], dep: [], queue: [], spawnT: 0, breakT: 0, nid: 1, bm: 1 };
 let hintT = -9; // last time a mechanic hint popped up
 const rot = new Float32Array(NC), cleanedAt = new Float32Array(NC).fill(-9);
 const seen = { run: 0, wave: 0, nk: 0, hl: 0, bk: 0, cleared: false, phase: 'wait' };
@@ -69,7 +69,13 @@ function recordRun() {
   STATS[me.cls + '/' + world.diff] = { best: Math.max(s.best, me.score | 0), wave: Math.max(s.wave, world.wave), runs: s.runs + 1,
     kills: s.kills + me.kills, bosses: s.bosses + me.bosses };
   try { localStorage.setItem('coderot-stats', JSON.stringify(STATS)); } catch (_) {}
+  runCommits = Math.floor(me.score / 10000); commits += runCommits; // score already scales with difficulty, mutators and how deep you got
+  try { localStorage.setItem('coderot-commits', commits); } catch (_) {}
 }
+// Commits: the meta currency, earned at the end of every real run, spent in the shop (one wallet for all classes).
+let commits = 0, runCommits = 0;
+try { commits = Math.max(0, Math.floor(+localStorage.getItem('coderot-commits') || 0)); } catch (_) {}
+
 let me = mkMe();
 
 const pop = (x, y, text, col, size = 16) => pops.push({ x, y, text, col, size, life: 1 });
