@@ -3,30 +3,31 @@
 // Star layout: whoever creates the room hosts the world. Guests send their player state + actions ~30x/s,
 // the host sends back world snapshots and everyone's player state.
 
-const PEER_PREFIX = 'coderot-v2-';
+const PEER_PREFIX = 'coderot-v3-'; // v3: builds instead of classes, the big map (older versions can't join)
 let peer = null, conns = new Map(), hostConn = null, roomCode = '', sendAcc = 0, pingAcc = 0;
-const pingCol = ms => ms < 90 ? '#5dffa8' : ms < 180 ? PAL.gold : PAL.red;
+const pingCol = ms => ms < 90 ? PAL.green : ms < 180 ? PAL.gold : PAL.red;
 const online = () => !!peer;
 const netAvailable = () => typeof Peer === 'function';
 
 function playerState() {
-  return { n: nick, c: myColor, cls: me.cls, x: me.x | 0, y: me.y | 0, a: Math.round(me.a * 100) / 100, hp: me.hp, mh: me.mh, d: me.down ? 1 : 0,
+  return { n: nick, c: myColor, wp: me.wp, lv: me.lv, med: me.cp.medic ? 1 : 0, x: me.x | 0, y: me.y | 0, a: Math.round(me.a * 100) / 100, hp: me.hp, mh: me.mh, d: me.down ? 1 : 0,
     s: me.score | 0, f: me.firing ? 1 : 0, o: me.up.orbit, fw: me.pw.firewall > 0 ? 1 : 0, dk: me.pw.duck > 0 ? 1 : 0,
-    sh: CLASSES[me.cls].shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sk: mySkin, tu: turrets.map(t => [t.x | 0, t.y | 0]), mi: minions.map(n => [n.x | 0, n.y | 0]), bc: beacons.map(b => [b.x | 0, b.y | 0]) };
+    sh: WEAPONS[me.wp].shots + me.up.shots + (me.pw.sudo > 0 ? 2 : 0), sk: mySkin, tu: turrets.map(t => [t.x | 0, t.y | 0]), mi: minions.map(n => [n.x | 0, n.y | 0]), bc: beacons.map(b => [b.x | 0, b.y | 0]),
+    ov: me.osT > 0 ? me.cw.os : '', cm: me.osT > 0 && me.cw.os === 'camo' ? 1 : 0, tk: dil > 0 ? Math.round(dilK * 100) : 100 }; // tk = the world speed my dilation asks for // active implant (cm = cloaked: the host's bugs ignore you)
 }
 function upsertOther(id, s) { // everything from the network is untrusted: clamp it
   if (!s || typeof s !== 'object') return;
   let o = others.get(id);
-  if (!o) { o = { id, trail: [], fireT: 0, x: clamp(num(s.x, W / 2), 0, W), y: clamp(num(s.y, H / 2), 0, H) }; others.set(id, o); }
+  if (!o) { o = { id, trail: [], fireT: 0, x: clamp(num(s.x, MW / 2), 0, MW), y: clamp(num(s.y, MH / 2), 0, MH) }; others.set(id, o); }
   o.raw = s; o.seen = T;
-  o.tx = clamp(num(s.x, o.x), 0, W); o.ty = clamp(num(s.y, o.y), 0, H); o.a = num(s.a);
+  o.tx = clamp(num(s.x, o.x), 0, MW); o.ty = clamp(num(s.y, o.y), 0, MH); o.a = num(s.a);
   o.hp = clamp(num(s.hp), 0, 30); o.mh = clamp(num(s.mh, 3), 1, 30); o.d = !!s.d; o.s = num(s.s); o.f = !!s.f;
   o.o = clamp(num(s.o), 0, 8); o.fw = !!s.fw; o.dk = !!s.dk; o.sh = clamp(num(s.sh, 1), 1, 14);
-  o.sk = SKINS.some(k => k.id === s.sk) ? s.sk : 'none';
-  o.n = String(s.n || 'DEV').slice(0, 12); o.cls = CLASSES[s.cls] ? s.cls : 'debugger'; o.col = PCOL[clamp(num(s.c), 0, PCOL.length - 1) | 0];
-  o.mi = Array.isArray(s.mi) ? s.mi.slice(0, 9).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
-  o.bc = Array.isArray(s.bc) ? s.bc.slice(0, 1).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
-  o.tu = Array.isArray(s.tu) ? s.tu.slice(0, 2).map(t => [clamp(num(t && t[0]), 0, W), clamp(num(t && t[1]), 0, H)]) : [];
+  o.sk = SKINS.some(k => k.id === s.sk) ? s.sk : 'none'; o.ov = CW[s.ov] ? s.ov : ''; o.cm = !!s.cm; o.tk = clamp(num(s.tk, 100), 25, 100) / 100; // floor 25%: nobody can freeze the room
+  o.n = String(s.n || 'DEV').slice(0, 12); o.wp = WEAPONS[s.wp] ? s.wp : 'pulse'; o.lv = clamp(num(s.lv, 1) | 0, 1, BAL.xp.cap); o.med = !!s.med; o.col = PCOL[clamp(num(s.c), 0, PCOL.length - 1) | 0];
+  o.mi = Array.isArray(s.mi) ? s.mi.slice(0, 9).map(t => [clamp(num(t && t[0]), 0, MW), clamp(num(t && t[1]), 0, MH)]) : [];
+  o.bc = Array.isArray(s.bc) ? s.bc.slice(0, 1).map(t => [clamp(num(t && t[0]), 0, MW), clamp(num(t && t[1]), 0, MH)]) : [];
+  o.tu = Array.isArray(s.tu) ? s.tu.slice(0, 2).map(t => [clamp(num(t && t[0]), 0, MW), clamp(num(t && t[1]), 0, MH)]) : [];
 }
 
 // ---------- snapshots ----------
@@ -46,7 +47,7 @@ function applyWorld(w) {
   if (!w || typeof w !== 'object') return;
   world.diff = DIFFS[w.df] ? w.df : 'normal'; world.muts = Array.isArray(w.mu) ? w.mu.filter(k => MUTS[k]).slice(0, MK.length) : []; world.autoskip = !!w.as; world.meta = !!w.mt; world.sw = num(w.sw);
   world.phase = w.ph ? 'over' : 'play'; world.wave = num(w.wv); world.run = num(w.run); world.nk = num(w.nk); world.hl = num(w.hl); world.ht = String(w.ht || '');
-  world.nx = num(w.nx, W / 2); world.ny = num(w.ny, H / 2); world.breakT = w.bk ? 1 : 0; world.nid = num(w.i, 1); world.bm = num(w.bm, 1) || 1;
+  world.nx = num(w.nx, MW / 2); world.ny = num(w.ny, MH / 2); world.breakT = w.bk ? 1 : 0; world.nid = num(w.i, 1); world.bm = num(w.bm, 1) || 1;
   world.queue.length = clamp(num(w.q), 0, 500);
   const r = typeof w.r === 'string' ? w.r : '';
   for (let k = 0; k < NC && k < r.length; k++) { const v = (r.charCodeAt(k) - 48) / 9; if (v >= 0 && v <= 1) rot[k] = T - cleanedAt[k] < .6 ? Math.min(rot[k], v) : v; }
@@ -92,7 +93,7 @@ function hostRoom(code) {
         const used = new Set([0, ...[...conns.values()].map(x => x.color)]);
         c.color = Math.max(0, PCOL.findIndex((_, i) => !used.has(i)));
         conns.set(c.peer, c); c.send({ t: 'hi', c: c.color });
-        pop(W / 2, 110, 'A DEV JOINED', PAL.white, 16);
+        popS(W / 2, 110, 'A DEV JOINED', PAL.white, 16);
       });
       c.on('data', d => {
         if (!d || !conns.has(c.peer)) return;

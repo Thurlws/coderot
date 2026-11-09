@@ -2,6 +2,7 @@
 // Bosses: six brains, each with a signature mechanic built from "parts" (pillars, QR code, noodle arms, loop body,
 // CI pods, hologram decoys). Parts are ordinary bugs with a pid (parent boss id), so hits, kills and online sync
 // work like any other enemy. Host-only logic: setupBoss, bossAI, bossParts, partKilled. Everyone: dmgMul, bossEvents.
+// Bosses fight inside ARENA (a locked box in the middle of the map, config.js); every position below is relative to it.
 
 const ringShots = (x, y, n, sp, off = T, k = 'orb') => { for (let i = 0; i < n; i++) fireShot(x, y, i * 6.283 / n + off, sp, k); };
 const fanShots = (x, y, a, n, gap, sp, k = 'orb') => { for (let i = 0; i < n; i++) fireShot(x, y, a + (i - (n - 1) / 2) * gap, sp, k); };
@@ -22,7 +23,7 @@ function setupBoss(b) {
   if (B.ai === 'monolith') for (let i = 0; i < 3; i++) spawnPart('pillar', b, i, partHpMul());
   if (B.ai === 'bsod') spawnPart('qr', b, 0);
   if (B.ai === 'spaghetti') { b.armT = 1; b.cuts = 0; }
-  if (B.ai === 'loop') { b.ps = -1.57; b.pcx = W / 2; b.pcy = H / 2; b.hist = []; b.shed = 0; for (let i = 0; i < 22; i++) spawnPart('body', b, i); }
+  if (B.ai === 'loop') { b.ps = -1.57; b.pcx = ARENA.x + ARENA.w / 2; b.pcy = ARENA.y + ARENA.h / 2; b.hist = []; b.shed = 0; for (let i = 0; i < 22; i++) spawnPart('body', b, i); }
   if (B.ai === 'deploy') { b.aux = LAUNCH_T; b.holoT = 6; for (let i = 0; i < 4; i++) spawnPart('pod', b, i, podHp()); }
 }
 
@@ -43,14 +44,14 @@ function dmgMul(b, viaQr) {
 const ghostly = b => BUG[b.type].ghost || ((b.type === 'zombie' || b.type === 'cache') && b.aux > 0);
 const targetable = b => !b.dead && !ghostly(b) && (BUG[b.type].fwd || dmgMul(b) > 0) && (b.rev || b.type !== 'trojan');
 
-function hint(text, col = PAL.gold) { if (T - hintT > 2.5) { hintT = T; pop(W / 2, 140, text, col, 18); } }
+function hint(text, col = PAL.gold) { if (T - hintT > 2.5) { hintT = T; popS(W / 2, 140, text, col, 18); } }
 function blockedHint(b) {
-  sfx(2200, .03, 'square', .02);
+  cue('armor', 1, 1, .12);
   if (b.type === 'body') return hint('ONLY THE HEAD TAKES DAMAGE');
   if (b.type !== 'boss') return;
   const ai = bossDef(b).ai;
   if (ai === 'monolith') hint('SHIELDED · BREAK THE PILLARS', PAL.ice);
-  if (ai === 'bsod') hint('ONLY THE QR CODE TAKES DAMAGE', '#3d7bff');
+  if (ai === 'bsod') hint('ONLY THE QR CODE TAKES DAMAGE', '#2570D4');
 }
 
 // After the first loop through all 6 bosses they come back remixed: loop 2 adds shot rings, loop 3+ also calls in blinking escorts.
@@ -60,7 +61,7 @@ function bossRemix(b, dt) {
   if ((b.rmx = (b.rmx ?? 3) - dt) > 0) return;
   b.rmx = 4.5 * dif().fire;
   ringShots(b.x, b.y, 8 + 3 * loop, 210);
-  if (loop >= 3) for (let i = 0; i < 2; i++) spawnBug('cache', b.x + rand(-80, 80), b.y + rand(-80, 80));
+  if (loop >= 3) for (let i = 0; i < 2; i++) kid(spawnBug('cache', b.x + rand(-80, 80), b.y + rand(-80, 80)));
 }
 
 // ---------- attacks + movement (host) ----------
@@ -68,16 +69,17 @@ function bossAI(b, tgt, dt, play) { // returns a movement override [ux, uy, spee
   const B = bossDef(b), rage = b.hp < b.mhp * .4, f = dif().fire * (rage ? .65 : 1);
   if (b.st > 0) { b.st -= dt; return [b.cx, b.cy, b.sp * 5]; } // charging
   let mv = null;
-  if (B.ai === 'bsod') mv = steer(b, W / 2 + Math.sin(T * .5) * 300, 160, 160);
+  const A = ARENA;
+  if (B.ai === 'bsod') mv = steer(b, A.x + A.w / 2 + Math.sin(T * .5) * 300, A.y + 160, 160);
   if (B.ai === 'loop') mv = [0, 0, 0]; // bossParts drives it along the ∞ path
-  if (B.ai === 'deploy') mv = steer(b, W / 2 + Math.sin(T * .35) * 260, 250, 90);
-  if (!play || !tgt || b.frz > 0 || b.stn > 0 || b.y < 60) return mv;
+  if (B.ai === 'deploy') mv = steer(b, A.x + A.w / 2 + Math.sin(T * .35) * 260, A.y + 250, 90);
+  if (!play || !tgt || b.frz > 0 || b.stn > 0 || b.y < A.y + 60) return mv;
   b.sc = (b.sc || 0) - dt;
   if (B.ai === 'kernel' && b.sc <= 0) { b.sc = .14 * f; for (const k of rage ? [0, 2.094, 4.189] : [0, Math.PI]) fireShot(b.x, b.y, T * 2.2 + k, 190, 'orb'); }
   if (B.ai === 'loop' && b.sc <= 0) { b.sc = .3 * f; fireShot(b.x, b.y, Math.atan2(tgt.y - b.y, tgt.x - b.x) + rand(-.2, .2), 270, 'orb'); }
   if ((b.cd -= dt) > 0) return mv;
   const a = Math.atan2(tgt.y - b.y, tgt.x - b.x), step = b.act++ % 4;
-  const summon = (types, n) => { for (let i = 0; i < n; i++) spawnBug(pick(types), b.x + rand(-70, 70), b.y + rand(-70, 70)); };
+  const summon = (types, n) => { for (let i = 0; i < n; i++) kid(spawnBug(pick(types), b.x + rand(-70, 70), b.y + rand(-70, 70))); }; // summons pay nothing
   let cd = 2.2;
   switch (B.ai) {
     case 'monolith': // slam shockwaves while the pillars keep it safe
@@ -97,8 +99,8 @@ function bossAI(b, tgt, dt, play) { // returns a movement override [ux, uy, spee
       if (step === 2) discCells(b.x, b.y, 160, k => { rot[k] = Math.min(1, rot[k] + .7); });
       break;
     case 'bsod': cd = 2.6; // walls of bullets with one gap
-      if (step === 0 || (rage && step === 2)) { const gap = rand(140, W - 140); for (let x = 20; x < W; x += 44) if (Math.abs(x - gap) > 95) fireShot(x, 70, Math.PI / 2, 170, 'orb'); }
-      if (step === 1) { const gap = rand(150, H - 100); for (let y = 80; y < H; y += 44) if (Math.abs(y - gap) > 95) fireShot(10, y, 0, 190, 'orb'); }
+      if (step === 0 || (rage && step === 2)) { const gap = A.x + rand(140, A.w - 140); for (let x = A.x + 20; x < A.x + A.w; x += 44) if (Math.abs(x - gap) > 95) fireShot(x, A.y + 70, Math.PI / 2, 170, 'orb'); }
+      if (step === 1) { const gap = A.y + rand(150, A.h - 100); for (let y = A.y + 80; y < A.y + A.h; y += 44) if (Math.abs(y - gap) > 95) fireShot(A.x + 10, y, 0, 190, 'orb'); }
       if (step === 2 && !rage) fanShots(b.x, b.y, a, 7, .14, 300);
       if (step === 3) { summon(['zip'], 3); fireShot(b.x, b.y, a, 300, 'ad'); }
       break;
@@ -122,7 +124,7 @@ function bossAI(b, tgt, dt, play) { // returns a movement override [ux, uy, spee
 function bossParts(b, dt, L, play) {
   const B = bossDef(b), rage = b.hp < b.mhp * .4, frozen = b.frz > 0;
   if (b.stn > 0) b.stn -= dt;
-  const place = (p, x, y) => { p.x = p.tx = clamp(x, 16, W - 16); p.y = p.ty = clamp(y, 16, H - 16); };
+  const A = ARENA, place = (p, x, y) => { p.x = p.tx = clamp(x, A.x + 16, A.x + A.w - 16); p.y = p.ty = clamp(y, A.y + 16, A.y + A.h - 16); };
   switch (B.ai) {
     case 'monolith': { // 3 orbiting dependency pillars shield it; break all 3 for a 6s window, then they rebuild
       const pl = partsOf(b, 'pillar');
@@ -137,7 +139,7 @@ function bossParts(b, dt, L, play) {
       if (play && !frozen && (b.dpT = (b.dpT ?? 3) - dt) <= 0) {
         b.dpT = rage ? 3 : 4.5;
         const spots = L.map(p => [p.x + rand(-50, 50), p.y + rand(-50, 50)]);
-        for (let i = 0; i < 2; i++) spots.push([rand(80, W - 80), rand(100, H - 80)]);
+        for (let i = 0; i < 2; i++) spots.push([A.x + rand(80, A.w - 80), A.y + rand(100, A.h - 80)]);
         for (const [x, y] of spots) discCells(x, y, rage ? 95 : 75, k => { if (!world.dep.some(d => d.k === k)) world.dep.push({ k, t: 6 }); });
       }
       break;
@@ -170,7 +172,7 @@ function bossParts(b, dt, L, play) {
       if (b.aux > 0) {
         b.aux += dt * 20;
         if (b.aux >= 100) {
-          if ((b.rbDmg || 0) < b.mhp * .08) { b.hp = Math.min(b.mhp, b.hp + b.mhp * .15); b.x = b.tx = rand(260, W - 260); b.y = b.ty = rand(150, 240); }
+          if ((b.rbDmg || 0) < b.mhp * .08) { b.hp = Math.min(b.mhp, b.hp + b.mhp * .15); b.x = b.tx = A.x + rand(260, A.w - 260); b.y = b.ty = A.y + rand(150, 240); }
           else b.stn = 4;
           b.aux = 0; b.rbT = 0; b.rbDmg = 0;
         }
@@ -178,11 +180,11 @@ function bossParts(b, dt, L, play) {
       break;
     }
     case 'loop': { // head runs a figure-eight that drifts toward the devs; the body follows its trail
-      const A = 360, Bv = 400, sp = (rage ? 1.25 : .9) * (frozen ? .12 : 1), tgt = nearest(b, L);
+      const AX = 360, Bv = 400, sp = (rage ? 1.25 : .9) * (frozen ? .12 : 1), tgt = nearest(b, L);
       if (tgt && !frozen) { b.pcx += Math.sign(tgt.x - b.pcx) * 35 * dt; b.pcy += Math.sign(tgt.y - b.pcy) * 35 * dt; }
-      b.pcx = clamp(b.pcx, A + 20, W - A - 20); b.pcy = clamp(b.pcy, 190, H - 190);
+      b.pcx = clamp(b.pcx, A.x + AX + 20, A.x + A.w - AX - 20); b.pcy = clamp(b.pcy, A.y + 190, A.y + A.h - 190);
       b.ps += sp * dt;
-      const d = 1 + Math.sin(b.ps) ** 2, nx = b.pcx + A * Math.cos(b.ps) / d, ny = b.pcy + Bv * Math.sin(b.ps) * Math.cos(b.ps) / d;
+      const d = 1 + Math.sin(b.ps) ** 2, nx = b.pcx + AX * Math.cos(b.ps) / d, ny = b.pcy + Bv * Math.sin(b.ps) * Math.cos(b.ps) / d;
       if (dt) { b.vx = (nx - b.x) / dt; b.vy = (ny - b.y) / dt; }
       b.x = b.tx = nx; b.y = b.ty = ny;
       b.hist.push([nx, ny]); if (b.hist.length > 1200) b.hist.shift();
@@ -196,7 +198,7 @@ function bossParts(b, dt, L, play) {
       const th = [.75, .5, .25];
       while (b.shed < 3 && b.hp < b.mhp * th[b.shed]) { // shed the tail: each lost segment becomes a fork bomb
         b.shed++;
-        for (const p of body.slice(-6)) { p.dead = true; gone.set(p.id, T); burst(p.x, p.y, B.col, 8, true); spawnBug('fork', p.x, p.y); }
+        for (const p of body.slice(-6)) { p.dead = true; gone.set(p.id, T); burst(p.x, p.y, B.col, 8, true); kid(spawnBug('fork', p.x, p.y)); }
       }
       break;
     }
@@ -222,13 +224,13 @@ function bossParts(b, dt, L, play) {
       if (!b.aborting && (b.aux -= dt * (rage ? 1.75 : 1)) <= 0) { // LAUNCH: prod gets wrecked
         b.aux = LAUNCH_T;
         for (let k = 0; k < NC; k++) if (Math.random() < .3) rot[k] = 1;
-        for (const t of ['crawl', 'crawl', 'crawl', 'crawl', 'zip', 'zip', 'zip', 'adware', 'adware', 'trojan']) spawnBug(t);
+        for (const t of ['crawl', 'crawl', 'crawl', 'crawl', 'zip', 'zip', 'zip', 'adware', 'adware', 'trojan']) kid(spawnBug(t));
         b.hp = Math.min(b.mhp, b.hp + b.mhp * .1); // a successful launch also patches the boss
         const have = new Set(pods.map(p => p.slot)); for (let i = 0; i < 4; i++) if (!have.has(i)) spawnPart('pod', b, i, podHp());
       }
       if ((b.holoT -= dt) <= 0) { // jump somewhere new and leave two hologram decoys behind
         b.holoT = rage ? 7 : 11;
-        const spots = [0, 1, 2].map(() => [rand(240, W - 240), rand(190, 330)]);
+        const spots = [0, 1, 2].map(() => [A.x + rand(240, A.w - 240), A.y + rand(190, 330)]);
         b.x = b.tx = spots[0][0]; b.y = b.ty = spots[0][1];
         for (let i = 1; i < 3; i++) { const h = spawnPart('holo', b, i, 1, spots[i][0], spots[i][1]); h.life = 6; }
       }
@@ -248,16 +250,16 @@ function bossEvents() {
     const ai = bossDef(b).ai, stn = b.stn > 0, au = b.aux || 0;
     if (b.wStn === false && stn) {
       const msg = { spaghetti: ['NOODLES CUT', 'STUNNED · 2x DAMAGE'], bsod: ['REBOOT FAILED', 'STUNNED · 2x DAMAGE'], deploy: ['LAUNCH ABORTED', 'ARMOR DOWN · 2x DAMAGE'] }[ai];
-      if (msg) { banner = { t: 2.2, big: msg[0], sub: msg[1] }; arp([523, 784, 1047], .06, 'triangle', .07); }
+      if (msg) { banner = { t: 2.2, big: msg[0], sub: msg[1] }; cue('update'); }
     }
-    if (ai === 'monolith') { const open = au > 0; if (open && b.wOpen === false) { banner = { t: 2, big: 'CORE EXPOSED', sub: 'hit it now · pillars rebuild in 6s' }; arp([392, 523, 784], .06, 'square', .06); } b.wOpen = open; }
+    if (ai === 'monolith') { const open = au > 0; if (open && b.wOpen === false) { banner = { t: 2, big: 'CORE EXPOSED', sub: 'hit it now · pillars rebuild in 6s' }; cue('armorbreak'); } b.wOpen = open; }
     if (ai === 'bsod') {
-      if (au > 0 && !(b.wAux > 0)) { banner = { t: 2, big: 'REBOOTING', sub: 'hit the QR code before 100%!' }; sfx(220, .5, 'sawtooth', .06, 110); }
+      if (au > 0 && !(b.wAux > 0)) { banner = { t: 2, big: 'REBOOTING', sub: 'hit the QR code before 100%!' }; cue('uiglitch'); cue('loadstart'); }
       if (b.wAux > 0 && au === 0 && !stn) { banner = { t: 2, big: 'REBOOTED', sub: 'it healed 15% · hit the QR code harder' }; }
     }
     if (ai === 'deploy' && b.wAux !== undefined && b.wAux < 3 && au > LAUNCH_T - 10 && !stn) {
       banner = { t: 2.6, big: 'DEPLOYED TO PROD', sub: 'rot everywhere · it healed 10% · break the CI pods next time' };
-      flash = 1; flashCol = '255,59,92'; shake = 30; glitch = .8; boom(1.2, .45);
+      flash = 1; flashCol = '255,62,52'; shake = 30; glitch = .8; cue('cannon');
     }
     b.wStn = stn; b.wAux = au;
   }

@@ -23,18 +23,22 @@ function admBtn(label, fn, on, col) {
 function admToggleBtn(key, label) { return admBtn(label + (ADM[key] ? ': ON' : ': OFF'), () => { ADM[key] = !ADM[key]; }, ADM[key]); }
 
 // ---------- actions ----------
-function admSetClass(k) {
-  const K = CLASSES[k];
-  myClass = k; me.cls = k; me.m = metaLv(k, world.meta); me.alt = equipped(k); minions = [];
-  for (const u in me.up) me.up[u] = Math.min(me.up[u], upgCap(k, u)); // respect the new class's caps
-  me.mh = K.hp + me.up.hp + me.m.hp; me.hp = me.mh; me.down = false;
-  me.skillCd = 0; me.superT = 0; me.noCharge = 0; me.stress = 0;
-  ring(me.x, me.y, 10, 300, .4, PCOL[myColor], 5); pop(me.x, me.y - 50, K.name, PCOL[myColor], 18);
+function admSetWeapon(k) { // sandbox: any weapon, owned or not (your MK level if you own it)
+  const W = WEAPONS[k];
+  me.wp = k; me.mk = world.meta !== false ? clamp(META.wp.own[k] || 1, 1, BAL.wpn.mkMax) : 1;
+  me.wdmg = 1 + BAL.stat.weapon * (me.at[W.attr] - BAL.attr.start) + BAL.wpn.mkDmg * (me.mk - 1);
+  for (const u in me.up) me.up[u] = Math.min(me.up[u], upgCap(k, u)); // respect the new weapon's caps
+  ring(me.x, me.y, 10, 300, .4, PCOL[myColor], 5); pop(me.x, me.y - 50, W.name, PCOL[myColor], 18);
+}
+function admSetAbil(k) { // sandbox: any skill / super, unlocked or not
+  const A = ABIL[k]; me.ab[A.k] = k;
+  if (A.k === 'skill') me.skillCd = 0; else { me.superT = 0; me.noCharge = 0; me.stress = 0; }
+  pop(me.x, me.y - 50, A.name, PCOL[myColor], 16);
 }
 function admSpawn(type) {
   for (let i = 0; i < ADM.count; i++) {
     const a = rand(0, 6.283), d = rand(220, 360);
-    spawnBug(type, clamp(me.x + Math.cos(a) * d, 20, W - 20), clamp(me.y + Math.sin(a) * d, 80, H - 20));
+    const B = bounds(); spawnBug(type, clamp(me.x + Math.cos(a) * d, B.x + 20, B.x + B.w - 20), clamp(me.y + Math.sin(a) * d, B.y + 20, B.y + B.h - 20));
   }
 }
 function admBoss(i) {
@@ -53,11 +57,11 @@ function admWave(n) {
 function admKillAll() { for (const b of world.bugs) if (!b.dead) killBug(b, false); world.shots = []; world.dep = []; }
 function admClearAll() { // every bug (bosses too), enemy shot, rot tile and popup, plus anything still queued to spawn
   admKillAll(); world.queue = []; rot.fill(0); smudges = [];
-  ring(W / 2, H / 2, 20, 1400, .7, PAL.white, 8); flash = .5; flashCol = '244,241,255';
-  pop(W / 2, H / 2, 'ALL CODEROT CLEARED', PAL.white, 22);
+  ring(cam.x + W / 2, cam.y + H / 2, 20, 1400, .7, PAL.white, 8); flash = .5; flashCol = '244,241,255';
+  popS(W / 2, H / 2, 'ALL CODEROT CLEARED', PAL.white, 22);
 }
-function admPow(type) { world.pows.push({ id: world.nid++, type, x: clamp(me.x + rand(-60, 60), 30, W - 30), y: clamp(me.y - 70, 80, H - 30), t: 30 }); }
-function admMaxUpgrades() { for (const k in UPG) me.up[k] = Math.max(me.up[k], Math.min(upgCap(me.cls, k), 3)); me.mh = CLASSES[me.cls].hp + me.up.hp + me.m.hp; me.hp = me.mh; }
+function admPow(type) { const B = bounds(); world.pows.push({ id: world.nid++, type, x: clamp(me.x + rand(-60, 60), B.x + 30, B.x + B.w - 30), y: clamp(me.y - 70, B.y + 30, B.y + B.h - 30), t: 30 }); }
+function admMaxUpgrades() { for (const k in UPG) me.up[k] = Math.max(me.up[k], Math.min(upgCap(me.wp, k), 3)); me.mh = BAL.player.hp + cwMod('hp') + me.up.hp; me.hp = me.mh; }
 
 function buildAdmin() {
   if (!adminMode) return;
@@ -66,13 +70,12 @@ function buildAdmin() {
   head.textContent = 'SANDBOX · scores are not saved · ` hides this panel';
   admEl.appendChild(head);
   admSection('WORLD CONTROL',
-    admBtn(ADM.noSpawns ? 'SPAWNS: PAUSED' : 'SPAWNS: ON', () => { ADM.noSpawns = !ADM.noSpawns; }, !ADM.noSpawns, ADM.noSpawns ? PAL.gold : '#5dffa8'),
-    admBtn(ADM.freeze ? 'WORLD: FROZEN' : 'WORLD: RUNNING', () => { ADM.freeze = !ADM.freeze; }, ADM.freeze, ADM.freeze ? PAL.ice : '#5dffa8'),
+    admBtn(ADM.noSpawns ? 'SPAWNS: PAUSED' : 'SPAWNS: ON', () => { ADM.noSpawns = !ADM.noSpawns; }, !ADM.noSpawns, ADM.noSpawns ? PAL.gold : '#1DED83'),
+    admBtn(ADM.freeze ? 'WORLD: FROZEN' : 'WORLD: RUNNING', () => { ADM.freeze = !ADM.freeze; }, ADM.freeze, ADM.freeze ? PAL.ice : '#1DED83'),
     admBtn('CLEAR ALL CODEROT', admClearAll, undefined, PAL.rot));
-  admSection('CLASS', ...CK.map(k => admBtn(CLASSES[k].name, () => admSetClass(k), k === me.cls)));
-  const K = CLASSES[me.cls], A = ALTS[me.cls]; // try any skill / super / skin, owned or not
-  for (const [k, base] of [['skill', K.skill], ['sup', K.sup]])
-    admSection(k === 'skill' ? 'SKILL' : 'SUPER', admBtn(base, () => { me.alt[k] = false; me.skillCd = 0; }, !me.alt[k]), admBtn(A[k][0], () => { me.alt[k] = true; me.skillCd = 0; }, me.alt[k]));
+  admSection('WEAPON', ...WK.map(k => admBtn(WEAPONS[k].name, () => admSetWeapon(k), k === me.wp))); // try any weapon / skill / super / skin, owned or not
+  for (const t of ['skill', 'sup'])
+    admSection(t === 'skill' ? 'SKILL' : 'SUPER', ...Object.keys(ABIL).filter(k => ABIL[k].k === t).map(k => admBtn(ABIL[k].name, () => admSetAbil(k), me.ab[t] === k)));
   admSection('SKIN', ...SKINS.map(s => admBtn(s.name, () => { mySkin = s.id; }, mySkin === s.id, PAL.gold)));
   admSection('SPAWN AMOUNT', ...[1, 5, 10, 25].map(n => admBtn('x' + n, () => { ADM.count = n; }, ADM.count === n)));
   admSection('SPAWN ENEMY', ...BT.filter(t => t !== 'boss' && !BUG[t].part).map(t => admBtn(BUG[t].name, () => admSpawn(t), undefined, BUG[t].col)));
@@ -86,7 +89,7 @@ function buildAdmin() {
   admSection('CHEATS', admToggleBtn('god', 'GOD MODE'), admToggleBtn('infSuper', 'INFINITE SUPER'), admToggleBtn('noCd', 'NO COOLDOWNS'));
   admSection('PLAYER', admBtn('FULL SUPER', () => { me.sup = 100; }), admBtn('HEAL', () => { me.down = false; me.hp = me.mh; }),
     admBtn('+1 UPGRADE PICK', () => { me.picks++; }), admBtn('MAX UPGRADES', admMaxUpgrades), admBtn('+10,000 SCORE', () => { me.score += 10000; }));
-  admSection('WORLD', admBtn('CLEAR ROT', () => rot.fill(0)), admBtn('ROT 50%', () => { for (let k = 0; k < NC; k++) if (Math.random() < .5) rot[k] = 1; }),
+  admSection('WORLD', admBtn('CLEAR ROT', () => rot.fill(0)), admBtn('ROT 50%', () => { rot.fill(0); for (const k of shuffle([...rot.keys()]).slice(0, Math.round(NC * ROT_LIMIT / 2))) rot[k] = 1; calcRot(); }),
     admBtn('POPUP STORM', () => smear(6)), admBtn('CLEAR POPUPS', () => { smudges = []; }));
   admSection('GAME SPEED', ...[.25, .5, 1, 2].map(s => admBtn(s + 'x', () => { ADM.speed = s; }, ADM.speed === s)));
 }

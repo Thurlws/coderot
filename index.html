@@ -7,36 +7,57 @@
 <meta name="description" content="Co-op neon arcade shooter: blast the bugs rotting your codebase with friends.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <canvas id="c" aria-label="Coderot game canvas"></canvas>
-<div id="menu" class="panel">
- <div class="col">
-  <label for="nick" class="label">CALLSIGN</label>
+
+<!-- edge greebles (decorative) -->
+<div class="greeble g-tl" aria-hidden="true">ROT//OS 4.0.4 · PROTOCOL 0451-CR7<br>MEM 0x7FFE·0042 ░ HEAP OK<br>LINK STATE: LOCAL</div>
+<div class="greeble g-bl" aria-hidden="true">01101 00110 11010<br>CR7.SEC/KERNEL TRACE 00:00:04<br>ROTSEC ▓ DIAG BUS 12</div>
+<div class="greeble g-r" aria-hidden="true">0451<br>1010<br>0011<br>1101<br>0110<br>1001<br>0101</div>
+
+<!-- title: the first key or click also unlocks audio -->
+<div id="boot" role="button" tabindex="0" aria-label="Press any key to start">
+  <p class="boot-prompt"><kbd>ANY KEY</kbd> Jack in</p>
+  <p class="micro">ROTSEC SYSTEMS · PROTOCOL 0451-CR7 · AUDIO + INPUT HANDSHAKE PENDING</p>
+</div>
+
+<div id="menu">
+ <nav class="nav" aria-label="Main menu">
+  <p class="eyebrow">MAIN MENU</p>
+  <button id="solo" class="mbtn hot">PLAY SOLO</button>
+  <button id="opencw" class="mbtn">CYBERWARE <small id="cwsum"></small></button>
+  <button id="openshop" class="mbtn">CHARACTER</button>
+  <button id="sandbox" class="mbtn">SANDBOX</button>
+  <button id="opensettings" class="mbtn">SETTINGS</button>
+  <div id="online">
+    <p class="eyebrow">PLAY WITH FRIENDS <small>host’s settings apply</small></p>
+    <div class="duo"><button id="create" class="btn">CREATE ROOM</button><button id="quick" class="btn">QUICK MATCH</button></div>
+    <div class="row"><input id="code" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="join" class="btn">JOIN</button></div>
+    <p class="msg" id="netmsg" role="status"></p>
+  </div>
+ </nav>
+ <section class="panel cp loadout" aria-label="Loadout">
+  <h2 class="head">LOADOUT <small id="wallet"></small></h2>
+  <label for="nick" class="label">Callsign</label>
   <input id="nick" maxlength="12" autocomplete="off" spellcheck="false">
-  <span class="label">CLASS <small id="wallet"></small></span>
-  <div class="classes" id="classes" role="group" aria-label="Class"></div>
+  <span class="label">Build</span>
+  <div class="classes" id="classes" role="group" aria-label="Build: level, weapon, abilities"></div>
   <p id="classinfo"></p>
   <p id="stats" class="stats"></p>
-  <span class="label">DIFFICULTY</span>
+  <span class="label">Difficulty</span>
   <div class="diffs" id="diffs" role="group" aria-label="Difficulty"></div>
   <p id="diffinfo"></p>
   <label class="opt" title="The next wave starts as soon as the current one stops spawning. Also in the pause menu."><input type="checkbox" id="autoskip"> Wave skip <small>points x1.25</small></label>
- </div>
- <div class="col">
-  <div class="quad"><button id="solo" class="hot">PLAY SOLO</button><button id="openshop">SHOP</button><button id="sandbox">SANDBOX</button><button id="opensettings">SETTINGS</button></div>
-  <span class="label">MUTATORS <small id="mutinfo"></small></span>
+ </section>
+ <section class="panel cp extras" aria-label="Run options">
+  <h2 class="head">RUN CONFIG</h2>
+  <span class="label">Mutators <small id="mutinfo"></small></span>
   <div class="chips" id="muts" role="group" aria-label="Mutators"></div>
-  <span class="label">SHIP SKIN</span>
+  <span class="label">Ship skin</span>
   <div class="chips" id="skins" role="group" aria-label="Ship skin"></div>
-  <div id="online">
-    <span class="label">PLAY WITH FRIENDS <small>host’s settings apply</small></span>
-    <div class="duo"><button id="create">CREATE ROOM</button><button id="quick">QUICK MATCH</button></div>
-    <div class="row"><input id="code" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="join">JOIN</button></div>
-    <p class="msg" id="netmsg" role="status"></p>
-  </div>
   <details class="help">
     <summary>CONTROLS</summary>
     <dl>
@@ -44,35 +65,97 @@
       <dt>Shoot</dt><dd>Space (auto-aims) · or aim + click</dd>
       <dt>Skill</dt><dd>E · right-click</dd>
       <dt>Super</dt><dd>Q</dd>
+      <dt>Cyberware</dt><dd>C · L3 / R3</dd>
       <dt>Dash</dt><dd>Shift</dd>
       <dt>Upgrade</dt><dd>1 · 2 · 3</dd>
       <dt>Close popup</dt><dd>X</dd>
       <dt>Pause</dt><dd>Esc · arrows + Enter in menus</dd>
+      <dt>Mute</dt><dd>M</dd>
       <dt>Gamepad</dt><dd>sticks · RT shoot · RB dash · X skill · Y super</dd>
       <dt>Touch</dt><dd>left thumb moves · right thumb aims + fires</dd>
     </dl>
   </details>
- </div>
+ </section>
 </div>
 <aside id="admin" aria-label="Admin sandbox" hidden></aside>
 <button id="admintoggle" type="button" hidden>ADMIN</button>
-<div id="shop" class="panel" role="dialog" aria-modal="true" aria-labelledby="shoptitle" hidden>
-  <h2 id="shoptitle">SHOP <small id="shopwallet"></small></h2>
-  <div id="shopbody"></div>
-  <label class="opt"><input type="checkbox" id="metaonline"> Shop upgrades in rooms I host <small>off = everyone plays base stats</small></label>
-  <button id="shopdone" class="hot">DONE</button>
+
+<!-- CHARACTER: one perk tree per attribute + an INVENTORY tab (weapons). Nodes joined by circuit traces, hold to buy -->
+<div id="shop" role="dialog" aria-modal="true" aria-labelledby="shoptitle" hidden>
+  <header class="cwtop">
+    <div class="cwid"><b id="shopnick"></b><span id="shoplv">CHARACTER</span></div>
+    <h2 id="shoptitle" class="sr">CHARACTER</h2>
+    <nav class="cwtabs" id="shoptabs" aria-label="Attributes and inventory"></nav>
+    <span id="shopwallet" class="money"></span>
+  </header>
+  <div class="ptgrid">
+    <aside class="ptside">
+      <div class="ptlv"><span class="label" id="ptkind">Attribute</span><b id="ptname"></b><span id="ptrole"></span></div>
+      <div class="ptclasses" id="ptclasses"></div>
+      <div class="ptpts"><span class="ptchip" aria-hidden="true"></span><b id="ptpts"></b><span id="ptptsl">Perk points<br>available</span></div>
+      <div class="ptpts att"><span class="ptchip" aria-hidden="true"></span><b id="ptapts"></b><span>Attribute points<br>available</span></div>
+      <div class="ptprog"><p class="label">Tree progress <b id="ptprog"></b></p><div class="ptbar" id="ptbar" aria-hidden="true"></div>
+        <p class="micro">PRK INDEX 0451-CR7 · SIGNED BUILD</p></div>
+      <div id="ptrespec"></div>
+      <label class="opt"><input type="checkbox" id="metaonline"> Upgrades + cyberware in rooms I host <small>off = base stats</small></label>
+    </aside>
+    <div class="ptree"><div id="ptcanvas"><svg id="pttraces" aria-hidden="true"></svg><div id="ptnodes"></div><aside class="pttip" id="pttip" aria-live="polite" hidden></aside></div></div>
+  </div>
+  <footer class="prompts"><span><kbd>HOLD</kbd> Unlock / buy</span><span><kbd>Q</kbd><kbd>E</kbd> Switch tab</span><button id="shopdone" class="btn btn--secondary cp"><kbd>ESC</kbd> CLOSE</button></footer>
 </div>
-<div id="settings" class="panel" role="dialog" aria-modal="true" aria-labelledby="settitle" hidden>
-  <h2 id="settitle">SETTINGS</h2>
+
+<div id="settings" class="panel cp dialog" role="dialog" aria-modal="true" aria-labelledby="settitle" hidden>
+  <h2 id="settitle" class="head">SETTINGS</h2>
+  <p class="section">Video</p>
   <label class="opt"><input type="checkbox" id="s-shake"> Screen shake</label>
   <label class="opt"><input type="checkbox" id="s-flash"> Screen flashes</label>
   <label class="opt"><input type="checkbox" id="s-glitch"> Glitch and RGB-split effects</label>
   <label class="opt"><input type="checkbox" id="s-particles"> Full particles <small>off = fewer, smoother on older devices</small></label>
   <label class="opt"><input type="checkbox" id="s-numbers"> Score numbers on kills</label>
-  <label class="opt"><input type="checkbox" id="s-music"> Music <small>speeds up as the rot spreads</small></label>
-  <label class="opt range"><span>Volume <output id="s-volume-out" for="s-volume"></output></span><input type="range" id="s-volume" min="0" max="100" step="5"></label>
-  <div class="duo"><button id="s-reset">RESET</button><button id="s-done" class="hot">DONE</button></div>
+  <p class="section">Audio</p>
+  <label class="opt"><input type="checkbox" id="s-music"> Music <small>menu theme · combat · boss</small></label>
+  <label class="opt range"><span>Master volume</span><span class="slider cp"><input type="range" id="s-volume" min="0" max="100" step="5"><output id="s-volume-out" for="s-volume"></output></span></label>
+  <label class="opt range"><span>Music volume</span><span class="slider cp"><input type="range" id="s-mvol" min="0" max="100" step="5"><output id="s-mvol-out" for="s-mvol"></output></span></label>
+  <div class="duo"><button id="s-reset" class="btn btn--secondary cp">RESET</button><button id="s-done" class="btn btn--primary cp">DONE</button></div>
 </div>
+
+<!-- cyberware clinic: you're a program, so it's a chassis, not a body. Overview = hardware categories either side of a
+     hologram of your ship; picking a socket zooms in: installed sockets, possible replacements, a tooltip card, the hologram zoomed. -->
+<div id="cyber" role="dialog" aria-modal="true" aria-labelledby="cwtitle" data-view="over" hidden>
+  <header class="cwtop">
+    <div class="cwid"><b id="cwnick"></b><span id="cwcls"></span></div>
+    <nav class="cwtabs">
+      <button type="button" class="tab" id="cwtab-load">LOADOUT</button>
+      <h2 id="cwtitle" class="tab on">CYBERWARE</h2>
+      <button type="button" class="tab" id="cwtab-shop">CHARACTER</button>
+    </nav>
+    <div class="cwcap"><span class="label">Capacity <b id="cwcapnum"></b></span><div id="cwcap" class="capbar" aria-hidden="true"></div></div>
+    <span id="cwwallet" class="money"></span>
+  </header>
+  <div class="cwgrid" id="cwgrid">
+    <svg class="cwlines" id="cwlines" aria-hidden="true"></svg>
+    <div class="cwcats" id="cwleft"></div>
+    <div class="cwholo" aria-hidden="true">
+      <p class="micro holo-tag">ROT//OS 4.0.4 · CHASSIS SCAN · <span id="cwchassis"></span></p>
+      <svg viewBox="-170 -215 340 430" id="cwsvg">
+        <defs><clipPath id="cwclip"><polygon id="cwclipP"/></clipPath>
+          <linearGradient id="cwsweep" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5EF6FF" stop-opacity="0"/><stop offset="1" stop-color="#5EF6FF" stop-opacity=".35"/></linearGradient></defs>
+        <g class="floor"><ellipse cx="0" cy="196" rx="150" ry="16"/><ellipse class="spin" cx="0" cy="196" rx="118" ry="11"/><ellipse class="spin rev" cx="0" cy="196" rx="84" ry="7"/></g>
+        <g id="cwcam">
+          <g class="ship"><polygon class="hull" id="cwhull"/><polygon class="hullin" id="cwhullin"/><g id="cwtraces"></g>
+            <g clip-path="url(#cwclip)"><rect class="sweep" x="-170" y="-40" width="340" height="40" fill="url(#cwsweep)"/></g></g>
+          <g id="cwnodes"></g>
+        </g>
+      </svg>
+      <p class="micro holo-tag">SERIAL RS-0451-CR7 · FIRMWARE SIGNED · NEURAL BUS NOMINAL</p>
+    </div>
+    <div class="cwcats" id="cwright"></div>
+    <section class="cwzoom" id="cwzoom" aria-labelledby="cwzname"></section>
+    <aside class="cwtip cp" id="cwtip" aria-live="polite"></aside>
+  </div>
+  <footer class="prompts" id="cwprompts"></footer>
+</div>
+
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
 <script src="js/config.js" defer></script>
 <script src="js/state.js" defer></script>
