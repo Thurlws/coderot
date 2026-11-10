@@ -27,7 +27,7 @@ try {
 const dif = () => DIFFS[world.diff] || DIFFS.normal;
 
 // Player settings (settings panel in main.js). Reduced-motion users start with shake and glitch off.
-const SET_DEFAULT = { shake: true, flash: true, glitch: true, particles: true, numbers: true, music: true, volume: .8, mvol: .7 };
+const SET_DEFAULT = { shake: true, flash: true, glitch: true, bloom: true, particles: true, numbers: true, music: true, volume: .8, mvol: .7 };
 const SET = { ...SET_DEFAULT };
 if (matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) Object.assign(SET, { shake: false, glitch: false });
 try { const s = JSON.parse(localStorage.getItem('coderot-settings') || '{}'); for (const k in SET_DEFAULT) if (typeof s[k] === typeof SET_DEFAULT[k]) SET[k] = s[k]; } catch (_) {}
@@ -87,7 +87,7 @@ function build(on = world.meta !== false) { // what a run starts with. on = fals
   const pk = { hp: Math.floor(d('body') / S.body.hpEvery), speed: S.reflex.speed * d('reflex'), dash: S.reflex.dash * d('reflex'),
     ram: Math.floor(d('net') / S.net.ramEvery), hack: S.net.hack * d('net'), crit: S.focus.crit * d('focus'), sup: S.focus.sup * d('focus') };
   for (const k in cp) for (const s in PERK[k].mod || {}) pk[s] = (pk[s] || 0) + PERK[k].mod[s] * cp[k]; // perk mods, read through cwMod
-  return { at, cp, pk, wp, mk, sk, su, wdmg: 1 + S.weapon * d(WEAPONS[wp].attr) + BAL.wpn.mkDmg * (mk - 1), summ: 1 + S.tech.summon * d('tech') };
+  return { at, cp, pk, wp, mk, sk, su, wdmg: 1 + S.weapon * d(WEAPONS[wp].attr) + BAL.wpn.mkDmg * (mk - 1), summ: 1 + S.tech.summon * d('tech') + (pk.summ || 0) }; // summ: TECH + turret perks
 }
 function mkMe() {
   const on = world.meta !== false, B = build(on), cp = B.cp, eq = on ? { ...META.cw.eq } : {}, hp = BAL.player.hp + B.pk.hp + cwModOf(eq, 'hp');
@@ -123,14 +123,14 @@ function recordRun() {
   const s = statOf(world.diff);
   STATS[world.diff] = { best: Math.max(s.best, me.score | 0), wave: Math.max(s.wave, world.wave), runs: s.runs + 1, kills: s.kills + me.kills, bosses: s.bosses + me.bosses };
   try { localStorage.setItem('coderot-stats', JSON.stringify(STATS)); } catch (_) {}
-  saveMeta(); // creds + XP were banked live (earn); this just writes them
+  saveMeta(); // bytes + XP were banked live (earn); this just writes them
 }
-// CREDS: the currency, earned live during real runs (kills, wave clears, bosses, data stashes: earn), spent in CHARACTER and the clinic.
-let creds = 0, runCreds = 0, runXp = 0, runDrops = [];
+// BYTES: the currency, earned live during real runs (kills, wave clears, bosses, data stashes: earn), spent in CHARACTER and the clinic.
+let bytes = 0, runBytes = 0, runXp = 0, runDrops = [];
 try {
-  const c = localStorage.getItem('coderot-creds'), old = localStorage.getItem('coderot-commits'); // the currency used to be called commits
-  creds = Math.max(0, Math.floor(+(c ?? old) || 0));
-  if (c == null && old != null) { localStorage.setItem('coderot-creds', creds); localStorage.removeItem('coderot-commits'); }
+  const c = localStorage.getItem('coderot-bytes'), old = localStorage.getItem('coderot-creds') ?? localStorage.getItem('coderot-commits'); // earlier names: creds, commits
+  bytes = Math.max(0, Math.floor(+(c ?? old) || 0));
+  if (c == null && old != null) { localStorage.setItem('coderot-bytes', bytes); localStorage.removeItem('coderot-creds'); localStorage.removeItem('coderot-commits'); }
 } catch (_) {}
 
 // Progression save: XP, attributes, perk levels, equipped skill + super, weapons (MK per owned weapon), legendary blueprints,
@@ -153,16 +153,16 @@ try {
 } catch (_) {}
 if (attrPts() < 0) META.at = {}; // spent more than the level allows (an edited save): refund
 if (perkPts() < 0) META.pk = {};
-const saveMeta = () => { try { localStorage.setItem('coderot-meta', JSON.stringify(META)); localStorage.setItem('coderot-creds', Math.floor(creds)); } catch (_) {} };
-// creds + XP from play. Sandbox never pays; difficulty scales both, BOSS RUSH cuts both (every wave is a boss there).
+const saveMeta = () => { try { localStorage.setItem('coderot-meta', JSON.stringify(META)); localStorage.setItem('coderot-bytes', Math.floor(bytes)); } catch (_) {} };
+// bytes + XP from play. Sandbox never pays; difficulty scales both, BOSS RUSH cuts both (every wave is a boss there).
 function earn(c, xp, x, y, label) {
   if (adminMode || mode !== 'game' || world.phase !== 'play') return;
   const m = (BAL.eco.diff[world.diff] || 1) * (mut('rush') ? BAL.eco.rush : 1), before = myLv();
-  c *= m; xp *= m; creds += c; runCreds += c; runXp += xp; META.xp += xp;
-  if (label) pop(x, y, label + ' +' + fmt(c) + ' ◆', PAL.gold, 15);
+  c *= m; xp *= m; bytes += c; runBytes += c; runXp += xp; META.xp += xp;
+  if (label) pop(x, y, label + ' +' + fmt(c) + ' ¤', PAL.gold, 15);
   const now = myLv();
   if (now > before) {
-    banner = { t: 2.8, big: 'LEVEL ' + now, sub: 'LEVEL UP · +' + (perkPts(now) - perkPts(before)) + ' PERK · +' + (attrPts(now) - attrPts(before)) + ' ATTRIBUTE · spend them in CHARACTER' };
+    banner = { t: 2.8, big: 'LEVEL ' + now, sub: '+' + (perkPts(now) - perkPts(before)) + ' PERK · +' + (attrPts(now) - attrPts(before)) + ' ATTRIBUTE' };
     ring(me.x, me.y, 10, 600, .6, PAL.gold, 6); cue('perkmax'); saveMeta();
   }
 }

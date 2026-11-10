@@ -712,7 +712,7 @@ function pickUpgrade(i) {
 function syncLocal() {
   if (world.run !== seen.run) {
     seen.run = world.run; seen.wave = 0; seen.nk = world.nk; seen.hl = world.hl; seen.bk = 0; seen.cleared = false; seen.sw = world.sw; me = mkMe(); turrets = []; minions = []; beacons = []; smudges = []; if (mut('glass')) me.hp = me.mh = 1;
-    runCreds = 0; runXp = 0; runDrops = []; camTick(0, true);
+    runBytes = 0; runXp = 0; runDrops = []; camTick(0, true);
   }
   if (world.nk !== seen.nk) { seen.nk = world.nk; nukeFx(world.nx, world.ny); }
   if (world.sw !== seen.sw) { // MAINTENANCE WINDOW from any sysadmin in the room
@@ -731,14 +731,14 @@ function syncLocal() {
     if (me.down) { me.down = false; me.hp = 1; me.inv = 2; }
     const pay = BAL.eco.wave * world.wave * (BAL.eco.diff[world.diff] || 1) * (mut('rush') ? BAL.eco.rush : 1);
     earn(BAL.eco.wave * world.wave, BAL.xp.wave * world.wave); saveMeta();
-    banner = { t: 2.6, big: 'WAVE CLEAR', sub: (adminMode ? '' : '+' + fmt(pay) + ' ◆ · ') + 'rot halved · pick an upgrade' };
+    banner = { t: 2.6, big: 'WAVE CLEAR', sub: (adminMode ? '' : '+' + fmt(pay) + ' ¤ · ') + 'rot halved' };
     cue('clear');
   }
   seen.bk = bk;
   if (world.wave !== seen.wave && world.phase === 'play') {
     const skipped = world.wave > seen.wave && seen.wave > 0 && !seen.cleared; // auto-skip: still earn the upgrade
     seen.wave = world.wave; seen.cleared = false; newSnippet();
-    if (skipped) { me.picks++; me.score += 500 * world.wave; popS(W / 2, 150, 'WAVE SKIPPED +' + fmt(500 * world.wave) + ' · bugs carried over', PAL.gold, 16); } // points + a pick, no creds
+    if (skipped) { me.picks++; me.score += 500 * world.wave; popS(W / 2, 150, 'WAVE SKIPPED +' + fmt(500 * world.wave) + ' · bugs carried over', PAL.gold, 16); } // points + a pick, no bytes
     if (isBossWave(world.wave)) { const lp = bossLoop(); banner = { t: 3.2, big: bossName(world.wave) + (lp > 1 ? ' (REMIX ' + lp + ')' : ''), sub: 'BOSS INCOMING · ' + bossOf(world.wave).desc }; glitch = .6; cue('alert'); cue('bossaim', .8); }
     else { banner = { t: 2.6, big: 'WAVE ' + world.wave, sub: '' }; cue(world.wave === 1 ? 'area' : 'wave'); }
   }

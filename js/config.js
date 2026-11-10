@@ -4,19 +4,20 @@
 // ======================= BALANCE: every progression, economy, map and aim number lives here =======================
 // Cyberware, quickhack and weapon prices further down are base values; the multipliers here are applied to them at load.
 const BAL = {
-  // ---- economy. Creds (◆) come from play, never from score, so combo chains and score mutators can't be farmed ----
+  // ---- economy. Bytes (¤) come from play, never from score, so combo chains and score mutators can't be farmed ----
   eco: {
-    kill: .01,      // creds per enemy point value (BUG.pts): a BUG pays 1, a ZOMBIE PROCESS 10. Spawned children (fork splits,
+    kill: .01,      // bytes per enemy point value (BUG.pts): a BUG pays 1, a ZOMBIE PROCESS 10. Spawned children (fork splits,
                     // core-dump splits, rot-bred bugs, zombie spawn, boss summons) pay nothing
     wave: 6,        // per wave cleared, x the wave number (a skipped wave pays nothing)
     boss: 140,      // per boss kill, x the boss tier (wave / 5)
     stash: [14, 2.5], // DATA STASH on the map: base + per wave
     rush: .35,      // BOSS RUSH: every payout x this (every wave is a boss there)
     diff: { easy: .7, normal: 1, hard: 1.35, nightmare: 1.75 }},
+  price: 2, // flat multiplier on every shop price: cyberware, quickhacks, weapon unlocks, MK upgrades (maxing everything: ~119k bytes at 1, ~238k at 2)
   // ---- player level. XP to go from level n to n+1 = base * n^exp ----
   xp: { kill: .06, wave: 25, boss: 300, stash: [12, 2], base: 220, exp: 1.6, cap: 30 }, // level 30 = ~561k XP
-  // ---- attributes + perks. Points per level up; perkBonus = 1 extra perk point every N levels; respec = creds base + per level ----
-  attr: { start: 3, max: 20, perLv: 1, perkPerLv: 1, perkBonus: 5, respec: [250, 60] },
+  // ---- attributes + perks. Points per level up; perkBonus = 1 extra perk point every N levels; respec = bytes base + per level ----
+  attr: { start: 3, max: 20, perLv: 1, perkPerLv: 2, perkBonus: 5, respec: [250, 60] }, // 180 perk nodes: 2 points a level (~64 by 30) fills about a third
   stat: { // what each attribute point above the start value gives
     body: { hpEvery: 5 },                 // CHASSIS: +1 max HP per 5 points
     reflex: { speed: .012, dash: .015 },  // REFLEX: +1.2% move speed, -1.5% dash cooldown
@@ -30,7 +31,7 @@ const BAL = {
     tierLv: { common: 1, uncommon: 3, rare: 8, epic: 14, legendary: 20 },    // player level needed to install
     bpChance: .35, shardChance: .3 }, // per boss kill: legendary blueprint (legendaries can't be bought without one) / capacity shard
   qh: { costMul: 10 }, // quickhack price = base cost x this; level + NETRUN needs are in QH
-  // ---- weapons: unlock price + level in WEAPONS; MK.2-MK.4 upgrades cost mkCost[mk] creds and need level mkLv[mk] ----
+  // ---- weapons: unlock price + level in WEAPONS; MK.2-MK.4 upgrades cost mkCost[mk] bytes and need level mkLv[mk] ----
   wpn: { mkMax: 4, mkDmg: .2, mkCost: [0, 0, 900, 2600, 6500], mkLv: [0, 0, 6, 12, 18] },
   // ---- map: the world is cols x rows tiles; bosses fight in a locked arena in the middle ----
   map: { cols: 56, rows: 26, arena: [1600, 720], count: 1.6, spawn: 1.6, maxBugs: 140, maxBugsOnline: 110,
@@ -50,7 +51,7 @@ const H = 720; let W = 32 * CELL; // the view (camera): 720 tall, widens to fill
 const PAL = { bg: '#0B0F17', rot: '#FF3E34', gold: '#FFD741', white: '#EDE7E6', dim: '#9BB8B8', red: '#FF6159', ice: '#52DDDF', cyan: '#5EF6FF', green: '#1DED83',
   label: '#DF4A42', line: '#349197', panel: '#0E0E17', teal: '#4CA39A', purple: '#C583FF', orange: '#F86A32', acid: '#DFFF5E', hot: '#28FFFF' };
 const PCOL = ['#5EF6FF', '#C583FF', '#FFD741', '#1DED83', '#64A1FF', '#EFA248', '#EDE7E6', '#00FFD5'];
-const DISP = 'Rajdhani, "Arial Narrow", sans-serif', MONO = '"Share Tech Mono", Consolas, monospace';
+const DISP = 'CoderotBytes, Rajdhani, "Arial Narrow", sans-serif', MONO = 'CoderotBytes, "Share Tech Mono", Consolas, monospace'; // CoderotBytes only draws ¤ (the BYTES mark, style.css)
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -129,7 +130,7 @@ const POW = {
   duck: { col: '#FFFF4E', label: 'RUBBER DUCK', tip: 'turret buddy' },
   cell: { col: '#00FFD5', label: 'SUPER CELL', tip: '+30 super' },
   adblock: { col: '#1DED83', label: 'ADBLOCK', tip: 'clears screen gunk' },
-  stash: { col: PAL.gold, label: 'DATA STASH', tip: '◆ creds + XP' }}; // placed around the map each wave (BAL.map.stashes), never dropped
+  stash: { col: PAL.gold, label: 'DATA STASH', tip: '¤ bytes + XP' }}; // placed around the map each wave (BAL.map.stashes), never dropped
 const PT = Object.keys(POW), PT_DROP = PT.filter(k => k !== 'stash');
 
 const UPG = {
@@ -226,6 +227,10 @@ const PERK = {
   rmrf: { at: 'body', req: 12, ab: 1 },
   rp: { at: 'body', req: 15, max: 1, name: 'RESTORE POINT', desc: 'once per wave, a lethal hit leaves you at 1 HP' },
   debt: { at: 'body', req: 16, ab: 1 },
+  heavy: { at: 'body', req: 4, max: 3, name: 'HEAVY COMMIT', desc: '+5% weapon damage', mod: { dmg: .05 } },
+  fault: { at: 'body', req: 7, max: 3, name: 'FAULT TOLERANCE', desc: '+4% chance to deflect a hit', mod: { deflect: .04 } },
+  brute: { at: 'body', req: 11, max: 2, name: 'BRUTE FORCE', desc: 'shots pierce +1 bug', mod: { pierce: 1 } },
+  monolith: { at: 'body', req: 15, max: 1, name: 'MONOLITH', desc: '+1 shot per trigger pull', mod: { shots: 1 } },
   // REFLEX
   blink: { at: 'reflex', req: 3, ab: 1 },
   fast: { at: 'reflex', req: 4, max: 3, name: 'FAST CI', desc: '+8% fire rate', mod: { fire: .08 } },
@@ -237,6 +242,9 @@ const PERK = {
   head: { at: 'reflex', req: 12, max: 2, name: 'HEAD START', desc: '+1 upgrade pick at the start of each run' },
   soak: { at: 'reflex', req: 14, max: 2, name: 'SOAK TEST', desc: 'STRESS TEST lasts +1s' },
   loadtest: { at: 'reflex', req: 16, ab: 1 },
+  react: { at: 'reflex', req: 4, max: 2, name: 'SHORT CIRCUIT', desc: '+10% shot range', mod: { range: .1 } },
+  rapid: { at: 'reflex', req: 11, max: 3, name: 'HOT LOOP', desc: '+6% fire rate', mod: { fire: .06 } },
+  ghost: { at: 'reflex', req: 15, max: 1, name: 'ZERO LATENCY', desc: '-15% dash cooldown, +5% move speed', mod: { dash: .15, speed: .05 } },
   // TECH
   turret: { at: 'tech', req: 3, ab: 1 },
   spinup: { at: 'tech', req: 5, ab: 1 },
@@ -250,6 +258,9 @@ const PERK = {
   kube: { at: 'tech', req: 14, ab: 1 },
   auto: { at: 'tech', req: 15, max: 2, name: 'AUTOSCALER', desc: 'KUBERNETES deploys +2 containers' },
   chaos: { at: 'tech', req: 17, ab: 1 },
+  ops: { at: 'tech', req: 7, max: 2, name: 'SRE ROTATION', desc: '-8% cyberware cooldown', mod: { oscd: .08 } },
+  sentry: { at: 'tech', req: 11, max: 3, name: 'HARDENED SENTRY', desc: '+10% turret / container damage', mod: { summ: .1 } },
+  grid: { at: 'tech', req: 15, max: 1, name: 'DEFENSE GRID', desc: '+20% turret / container damage', mod: { summ: .2 } },
   // NETRUN
   mem: { at: 'net', req: 4, max: 3, name: 'MEMORY BANKS', desc: '+2 max netdeck RAM', mod: { ram: 2 } },
   watch: { at: 'net', req: 5, ab: 1 },
@@ -263,6 +274,8 @@ const PERK = {
   maint: { at: 'net', req: 14, ab: 1 },
   mass: { at: 'net', req: 15, max: 2, name: 'MASS EXPLOIT', desc: '+12 ZERO DAY exploits' },
   failover: { at: 'net', req: 16, ab: 1 },
+  payload: { at: 'net', req: 4, max: 3, name: 'PAYLOAD', desc: '+8% quickhack damage', mod: { hack: .08 } },
+  botnet: { at: 'net', req: 15, max: 1, name: 'BOTNET', desc: '+15% quickhack damage, -10% upload time', mod: { hack: .15, upload: .1 } },
   // FOCUS
   breakpoint: { at: 'focus', req: 0, ab: 1 },
   halt: { at: 'focus', req: 0, ab: 1 },
@@ -275,20 +288,107 @@ const PERK = {
   pier: { at: 'focus', req: 12, max: 2, name: 'FULL COVERAGE', desc: 'rails pierce +1 bug (RAIL LANCE)' },
   reg: { at: 'focus', req: 14, max: 3, name: 'REGRESSION SUITE', desc: '+20% damage to bosses', mod: { boss: .2 } },
   smoke: { at: 'focus', req: 15, ab: 1 },
-  rewind: { at: 'focus', req: 17, ab: 1 }};
+  rewind: { at: 'focus', req: 17, ab: 1 },
+  aim: { at: 'focus', req: 4, max: 3, name: 'DEAD ZONE', desc: '+3% crit chance', mod: { crit: .03 } },
+  shatter: { at: 'focus', req: 11, max: 2, name: 'SHATTER', desc: '+25% crit damage', mod: { critx: .25 } },
+  profiler: { at: 'focus', req: 11, max: 3, name: 'PROFILER', desc: '+10% super charge', mod: { sup: .1 } }};
 for (const k in PERK) { const P = PERK[k]; if (P.ab) Object.assign(P, { max: 1, name: ABIL[k].name, desc: ABIL[k].desc, free: !!ABIL[k].free }); }
-// The tree for one attribute: columns by requirement (<= 5 | 6-9 | 10-13 | 14+), a trace from the node to the left on the same row.
-const PERK_COLS = [5, 9, 13];
-function perkTree(a) {
-  const rows = [0, 0, 0, 0], out = [];
-  for (const id in PERK) { const P = PERK[id]; if (P.at !== a) continue; const c = PERK_COLS.filter(v => P.req > v).length; out.push({ id, at: [c, rows[c]++] }); }
-  for (const n of out) { const p = out.find(o => o.at[0] === n.at[0] - 1 && o.at[1] === n.at[1]) || out.filter(o => o.at[0] === n.at[0] - 1).pop(); if (p) n.pre = p.id; }
-  return out;
-}
+// Perk trees: four tiers by requirement (<= 5 | 6-9 | 10-13 | 14+). A whole tier opens at once, at tierStart, so req is rounded down to it.
+const PERK_TIERS = [5, 9, 13], tierStart = i => i ? PERK_TIERS[i - 1] + 1 : BAL.attr.start; // the attribute level a tier opens at
+for (const k in PERK) { const P = PERK[k]; P.tier = PERK_TIERS.filter(v => P.req > v).length; P.req = tierStart(P.tier); }
+// Sub-skills: small nodes that branch off a big one and open with its tier. id: [max level, name, effect, stat mods]
+const PERK_SUB = {
+  // CHASSIS
+  bulk: [1, 'BULKHEAD', '+1 max HP', { hp: 1 }], guard: [2, 'CHECKSUM', '+3% chance to deflect a hit', { deflect: .03 }],
+  mirror: [1, 'GRACE PERIOD', '+20% invulnerability after a hit', { inv: .2 }], salvage: [2, 'SALVAGE', '+15% power-up duration', { pw: .15 }],
+  integ: [1, 'INTEGRATION TESTS', '+1 max HP', { hp: 1 }], canary: [2, 'CANARY BUILD', '+2% chance to deflect a hit', { deflect: .02 }],
+  snap: [1, 'SNAPSHOT', '+25% invulnerability after a hit', { inv: .25 }], immut: [1, 'IMMUTABLE', '+1 max HP', { hp: 1 }],
+  refac: [2, 'REFACTOR', '-6% skill cooldown', { skill: .06 }], lint: [2, 'LINTER', '+8% super charge', { sup: .08 }],
+  inline: [2, 'INLINE', '+4% weapon damage', { dmg: .04 }], hoist: [1, 'HOIST', '-8% skill cooldown', { skill: .08 }],
+  force: [2, 'FORCE FLAG', '+10% super charge', { sup: .1 }], elev: [2, 'ELEVATED', '+10% damage to bosses', { boss: .1 }],
+  interest: [1, 'COMPOUND INTEREST', '+15% super charge', { sup: .15 }], refi: [1, 'REFINANCE', '-10% skill cooldown', { skill: .1 }],
+  kick: [2, 'RECOIL SPRING', '+5% fire rate', { fire: .05 }], bigdiff: [2, 'BIG DIFF', '+10% shot range', { range: .1 }],
+  shrap: [1, 'SHRAPNEL', 'shots ricochet once more', { bounce: 1 }],
+  crunch: [2, 'CRUNCH TIME', '+5% weapon damage', { dmg: .05 }], threads: [2, 'WORKER THREADS', '+5% fire rate', { fire: .05 }],
+  gc: [1, 'GARBAGE COLLECTOR', '+20% crit damage', { critx: .2 }], mmap: [1, 'MEMORY MAP', 'shots pierce +1 bug', { pierce: 1 }],
+  // REFLEX
+  trigger: [2, 'HAIR TRIGGER', '+4% fire rate', { fire: .04 }], tap: [1, 'DOUBLE TAP', '+10% shot range', { range: .1 }],
+  redline: [1, 'REDLINE', '+5% weapon damage', { dmg: .05 }], burn: [1, 'BURN-IN', '-8% skill cooldown', { skill: .08 }],
+  jit: [2, 'JIT', '+4% fire rate', { fire: .04 }], unroll: [1, 'LOOP UNROLL', 'shots pierce +1 bug', { pierce: 1 }],
+  flame: [1, 'FLAME GRAPH', '+3% crit chance', { crit: .03 }], tail: [1, 'TAIL CALL', '+20% crit damage', { critx: .2 }],
+  afterimg: [1, 'AFTERIMAGE', '+15% invulnerability after a hit', { inv: .15 }], vector: [1, 'VECTORIZE', '-8% dash cooldown', { dash: .08 }],
+  sprint: [2, 'SPRINT', '+3% move speed', { speed: .03 }], drift: [1, 'DRIFT', '-8% dash cooldown', { dash: .08 }],
+  hops: [1, 'MULTI-HOP', '-8% skill cooldown', { skill: .08 }], land: [1, 'SOFT LANDING', '+3% chance to deflect a hit', { deflect: .03 }],
+  spike: [1, 'SPIKE TEST', '+15% super charge', { sup: .15 }], scale: [1, 'SCALE OUT', '+5% fire rate', { fire: .05 }],
+  twitch: [2, 'TWITCH', '+3% move speed', { speed: .03 }], prefetch: [1, 'PREFETCH', '+10% shot range', { range: .1 }],
+  combo: [2, 'COMBO KEYS', '-6% dash cooldown', { dash: .06 }], bind: [1, 'KEYBIND', '-6% skill cooldown', { skill: .06 }],
+  tunnel: [1, 'TUNNEL', '+15% power-up duration', { pw: .15 }],
+  nop: [1, 'NOP SLED', '+5% move speed', { speed: .05 }], yield: [1, 'YIELD', '+10% super charge', { sup: .1 }],
+  // TECH
+  mount: [1, 'QUICK MOUNT', '-6% skill cooldown', { skill: .06 }], ammo: [2, 'BELT FEED', '+8% turret / container damage', { summ: .08 }],
+  tripod: [1, 'TRIPOD', '+8% turret / container damage', { summ: .08 }],
+  servo: [1, 'SERVO', '+10% cyberware duration', { osdur: .1 }], ward: [1, 'WARD', '+3% chance to deflect a hit', { deflect: .03 }],
+  salvo: [1, 'SALVO', '+12% turret / container damage', { summ: .12 }], overwatch: [1, 'OVERWATCH', '-10% skill cooldown', { skill: .1 }],
+  image: [1, 'BASE IMAGE', '+8% turret / container damage', { summ: .08 }], layer: [1, 'LAYER CACHE', '-6% skill cooldown', { skill: .06 }],
+  pod: [1, 'POD SPREAD', '+10% cyberware duration', { osdur: .1 }], sidecar: [2, 'SIDECAR', '+8% turret / container damage', { summ: .08 }],
+  affinity: [1, 'AFFINITY', '+10% super charge', { sup: .1 }],
+  helm: [1, 'HELM CHART', '+15% super charge', { sup: .15 }],
+  triage: [1, 'TRIAGE', '+1 max HP', { hp: 1 }], stim: [2, 'STIMULANT', '+15% power-up duration', { pw: .15 }],
+  cron: [2, 'CRON JOB', '-8% cyberware cooldown', { oscd: .08 }], uptime: [1, 'UPTIME', '+15% cyberware duration', { osdur: .15 }],
+  probe: [1, 'HEALTH PROBE', '+20% invulnerability after a hit', { inv: .2 }], vitals: [1, 'VITALS', '+1 max HP', { hp: 1 }],
+  blast: [1, 'BLAST RADIUS', '+12% turret / container damage', { summ: .12 }], respawn: [1, 'RESPAWN POLICY', '+10% super charge', { sup: .1 }],
+  // NETRUN
+  swap: [1, 'SWAP FILE', '+1 max netdeck RAM', { ram: 1 }], heap: [2, 'HEAP', '+1 max netdeck RAM', { ram: 1 }],
+  cool: [2, 'COOLANT', '+10% RAM regen', { ramr: .1 }], surge: [1, 'SURGE', '+10% RAM regen', { ramr: .1 }],
+  cache: [1, 'L2 CACHE', 'the RAM re-run of your super costs 1 less RAM', { supram: 1 }], page: [1, 'PAGE FILE', '+2 max netdeck RAM', { ram: 2 }],
+  patchw: [1, 'PATCH WINDOW', '+15% RAM regen', { ramr: .15 }], lts: [1, 'LONG-TERM SUPPORT', '+2 max netdeck RAM', { ram: 2 }],
+  trace: [1, 'STACK TRACE', '-8% quickhack upload time', { upload: .08 }],
+  gzip: [1, 'GZIP', '-8% quickhack upload time', { upload: .08 }], stream: [1, 'STREAMING', '+8% quickhack damage', { hack: .08 }],
+  stack: [1, 'CALL STACK', '+8% quickhack damage', { hack: .08 }], batch: [1, 'BATCH JOB', '-10% quickhack upload time', { upload: .1 }],
+  replica: [1, 'READ REPLICA', '+10% super charge', { sup: .1 }], quorum: [1, 'QUORUM', '+1 quickhack queue slot per enemy', { queue: 1 }],
+  inject: [2, 'INJECTION', '+6% quickhack damage', { hack: .06 }], fuzz: [1, 'FUZZER', '+3% crit chance', { crit: .03 }],
+  exploit: [1, 'EXPLOIT KIT', '+10% quickhack damage', { hack: .1 }], cve: [1, 'CVE FEED', '-8% quickhack upload time', { upload: .08 }],
+  spoof: [1, 'SPOOF', '+3% chance to deflect a hit', { deflect: .03 }], relay: [1, 'RELAY', '+10% super charge', { sup: .1 }],
+  swarm: [1, 'SWARM', '+12% quickhack damage', { hack: .12 }],
+  // FOCUS
+  frost: [1, 'FROST', '-6% skill cooldown', { skill: .06 }], still: [1, 'STILLNESS', '+3% crit chance', { crit: .03 }],
+  brittle: [2, 'BRITTLE', '+20% crit damage', { critx: .2 }], ice: [1, 'ICE', '-8% skill cooldown', { skill: .08 }],
+  core: [1, 'CORE TEMP', '+3% crit chance', { crit: .03 }],
+  audit: [1, 'AUDIT LOG', '+10% damage to bosses', { boss: .1 }], blame: [1, 'BLAME', '+25% crit damage', { critx: .25 }],
+  spool: [2, 'SPOOL UP', '+8% super charge', { sup: .08 }],
+  skip: [1, 'STEP OVER', '-8% skill cooldown', { skill: .08 }], over: [1, 'STEP OUT', '+10% super charge', { sup: .1 }],
+  hotpath: [1, 'HOT PATH', '+10% super charge', { sup: .1 }], sample: [1, 'SAMPLING', '-8% skill cooldown', { skill: .08 }],
+  undo: [1, 'UNDO', '+20% invulnerability after a hit', { inv: .2 }], redo: [1, 'REDO', '+15% super charge', { sup: .15 }],
+  sight: [2, 'SIGHTLINE', '+10% shot range', { range: .1 }], zero: [1, 'ZEROED', '+3% crit chance', { crit: .03 }],
+  bevel: [1, 'BEVEL', '+20% crit damage', { critx: .2 }], margin: [1, 'MARGIN', '+10% damage to bosses', { boss: .1 }],
+  tight: [2, 'TIGHT LOOP', '+3% crit chance', { crit: .03 }],
+  sweep: [1, 'SWEEP', 'shots pierce +1 bug', { pierce: 1 }], chain: [1, 'CHAIN RULE', '+25% crit damage', { critx: .25 }] };
+for (const k in PERK_SUB) { console.assert(!PERK[k], 'PERK_SUB clash: ' + k); const [max, name, desc, mod] = PERK_SUB[k]; PERK[k] = { max, name, desc, mod }; }
+// Three pillars per attribute, bottom to top: big:left,left|right,right. A big node sits on the pillar's trunk, up to two sub-skills either side.
+const PERK_PILLARS = {
+  body: ['plate:bulk|guard fault:mirror|salvage unit:integ|canary rp:snap|immut', 'rewrite:refac|lint extract:inline|hoist rmrf:force|elev debt:interest|refi',
+    'heavy:kick|bigdiff close:args|shrap brute:crunch|threads monolith:gc|mmap'],
+  reflex: ['fast:trigger|tap stress:redline|burn rapid:jit|unroll soak:flame|tail', 'blink:afterimg|vector lowlat:sprint|drift hop:hops|land loadtest:spike|scale',
+    'react:twitch|prefetch macros:combo|bind backdoor:head|tunnel ghost:nop|yield'],
+  tech: ['turret:mount|ammo lb:poll|tripod sentry:servo|ward grid:salvo|overwatch', 'spinup:image|layer rep:pod|sidecar route:bite|affinity kube:auto|helm',
+    'medic:triage|stim ops:cron|uptime health:probe|vitals chaos:blast|respawn'],
+  net: ['mem:swap|heap hot:cool|surge sbuf:cache|page maint:patchw|lts', 'watch:reroll|trace fup:gzip|stream qd:stack|batch failover:replica|quorum',
+    'payload:inject|fuzz zeroday:exploit|cve mitm:spoof|relay botnet:mass|swarm'],
+  focus: ['breakpoint:frost|still cold:brittle|ice shatter:dump|core reg:audit|blame', 'halt:warm|spool step:skip|over profiler:hotpath|sample rewind:undo|redo',
+    'aim:sight|zero edge:bevel|margin side:pier|tight smoke:sweep|chain'] };
+const perkTree = a => PERK_PILLARS[a].flatMap((s, col) => s.split(' ').flatMap(w => { // [{ id, tier, col, side: 0 big | -1 / 1 sub, slot: -1 / 0 / 1 up-down }]
+  const [id, sub = ''] = w.split(':'), [L = '', R = ''] = sub.split('|'), tier = PERK[id].tier;
+  const subs = (ids, side) => ids.split(',').filter(Boolean).map((k, i, A) => ({ id: k, tier, col, side, slot: A.length > 1 ? i * 2 - 1 : 0 }));
+  return [{ id, tier, col, side: 0, slot: 0 }, ...subs(L, -1), ...subs(R, 1)]; }));
+for (const a in PERK_PILLARS) { // sub-skills take their attribute + tier from the pillar; check every perk is placed once, one big node per pillar per tier
+  const t = perkTree(a); for (const d of t) if (d.side) Object.assign(PERK[d.id], { at: a, tier: d.tier, req: tierStart(d.tier) });
+  const ids = t.map(n => n.id), big = t.filter(n => !n.side).map(n => n.col + '.' + n.tier);
+  console.assert(new Set(ids).size === ids.length && Object.keys(PERK).filter(k => PERK[k].at === a).every(k => ids.includes(k)), 'perkTree ' + a + ': every perk placed once');
+  console.assert(new Set(big).size === big.length && big.length === 12, 'perkTree ' + a + ': one big node per pillar per tier'); }
 const xpNeed = lv => Math.round(BAL.xp.base * Math.pow(lv, BAL.xp.exp)); // XP from level lv to lv + 1
 
 // ---------- cyberware (installed at the clinic, main menu) ----------
-// One implant per socket, bought once with creds, limited by capacity (cwCap in state.js: grows with level, TECH and shards).
+// One implant per socket, bought once with bytes, limited by capacity (cwCap in state.js: grows with level, TECH and shards).
 // The OS implant is the only active one (C / L3); everything else is passive. eq = the sound it makes when you install it.
 // tier = rarity colour + the level needed (BAL.cw.tierLv); cost = base price, scaled by BAL.cw at the end of this file.
 // ---------- cyberware ----------
@@ -317,7 +417,7 @@ const CW = {
   camo: { slot: 'os', name: 'OPTICAL CAMO', tier: 'rare', cap: 3, cost: 45, cd: 20, dur: 5, eq: 'equip', ic: 'CMO',
     desc: '5s of thermoptic cloak: bugs lose track of you. Firing does not break it.', lore: 'Renders you as whitespace.' },
   deck1: { slot: 'os', name: 'NETDECK MK.1', tier: 'uncommon', cap: 3, cost: 30, eq: 'access', ic: 'ND1', deck: { ram: 8, regen: 2.5, up: 1, hdmg: 1, slots: 3 },
-    desc: 'Quickhack deck. Hold F to scan, pick a hack, click to queue it; uploads run once you close the scanner. 8 RAM, 3 quickhack slots.', lore: 'Entry-level intrusion kit. Smells like solder.' },
+    desc: 'Quickhack deck: 8 RAM, 3 quickhack slots. Scan: hold F. Uploads start when the scanner closes.', lore: 'Entry-level intrusion kit. Smells like solder.' },
   deck2: { slot: 'os', name: 'NETDECK // WRAITH', tier: 'epic', cap: 5, cost: 90, eq: 'access', ic: 'NDW', deck: { ram: 12, regen: 2, up: .75, hdmg: 1.1, slots: 5 },
     desc: '12 RAM, 5 quickhack slots, uploads 25% faster, +10% quickhack damage.', lore: 'Leaves no handshake, only a cold spot in the logs.' },
   deck3: { slot: 'os', name: 'NETDECK // LEVIATHAN', tier: 'legendary', cap: 7, cost: 160, eq: 'access', ic: 'NDL', deck: { ram: 16, regen: 1.6, up: .6, hdmg: 1.25, slots: 6, bw: true },
@@ -383,7 +483,7 @@ const CW = {
 CW.dma = { slot: 'bus', name: 'DMA CHANNEL', tier: 'rare', cap: 2, cost: 35, ic: 'DMA', mod: { ram: 2, ramr: .25 }, desc: '+2 netdeck RAM and +25% RAM regen.', lore: 'Skips the CPU entirely. Nobody asks.' };
 const CWK = Object.keys(CW);
 const cwModOf = (eq, k) => { let n = 0; for (const s in eq) { const D = CW[eq[s]]; if (D && D.mod && D.mod[k]) n += D.mod[k]; } return n; };
-// Quickhacks (run by a NETDECK kernel). ram = cost, up = upload seconds before the deck's speed-up, cost = base price in creds (0 = free,
+// Quickhacks (run by a NETDECK kernel). ram = cost, up = upload seconds before the deck's speed-up, cost = base price in bytes (0 = free,
 // x BAL.qh.costMul at the end of this file), lv / net = player level / NETRUN needed to buy it.
 // You pick which ones fill the deck's slots at the clinic. bw = only a deck with bw can run it.
 const QH = {
@@ -397,8 +497,10 @@ const QH = {
   panic: { name: 'KERNEL PANIC', ram: 10, up: 1.4, sfx: 'qh_panic', cost: 160, lv: 16, net: 12, lore: 'Not syncing.', desc: 'Crashes the target outright. Bosses lose 10% of their max HP.' }};
 const QHK = Object.keys(QH);
 // final prices + level gates from BAL (base costs above stay readable)
-for (const k in CW) { const D = CW[k]; D.lv = D.start ? 1 : BAL.cw.tierLv[D.tier]; D.cost = Math.round(D.cost * BAL.cw.costMul * BAL.cw.tierMul[D.tier] / 10) * 10; D.bp = D.tier === 'legendary'; }
-for (const k in QH) QH[k].cost = Math.round(QH[k].cost * BAL.qh.costMul);
+for (const k in CW) { const D = CW[k]; D.lv = D.start ? 1 : BAL.cw.tierLv[D.tier]; D.cost = Math.round(D.cost * BAL.cw.costMul * BAL.cw.tierMul[D.tier] * BAL.price / 10) * 10; D.bp = D.tier === 'legendary'; }
+for (const k in QH) QH[k].cost = Math.round(QH[k].cost * BAL.qh.costMul * BAL.price);
+for (const k in WEAPONS) WEAPONS[k].cost = Math.round(WEAPONS[k].cost * BAL.price);
+BAL.wpn.mkCost = BAL.wpn.mkCost.map(c => Math.round(c * BAL.price));
 const QH_ICON = { // original line icons, 24x24 (HTML svg + canvas Path2D)
   blackwall: 'M2 4h20v16H2zM2 9h20M2 15h20M8 4v5M16 9v6M9 15v5M13 5l-2 5 4 2-3 7', ping: 'M12 2l10 10-10 10L2 12zM12 6l6 6-6 6-6-6zM12 10l2 2-2 2-2-2z',
   smash: 'M14 2L6 13h5l-2 9 9-12h-5l1-8z', mutex: 'M5 11h14v10H5zM8 11V6h8v5M12 14v4', nullptr: 'M3 3h18v18H3zM3 21L21 3',

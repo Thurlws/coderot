@@ -44,7 +44,7 @@ function spawnSpot() {
   const A = ARENA, s = Math.random() * 4 | 0;
   return [s === 0 ? A.x - 24 : s === 1 ? A.x + A.w + 24 : A.x + rand(0, A.w), s < 2 ? A.y + rand(0, A.h) : s === 2 ? A.y - 24 : A.y + A.h + 24];
 }
-const kid = b => { if (b) b.kid = 1; return b; }; // spawned by another bug or by rot: worth no creds or XP (no farming split bugs)
+const kid = b => { if (b) b.kid = 1; return b; }; // spawned by another bug or by rot: worth no bytes or XP (no farming split bugs)
 function spawnBug(type, x, y, kind) {
   if (type !== 'boss' && world.bugs.filter(b => !isPart(b)).length >= maxBugs()) return null;
   if (type === 'boss') { world.bm = bossHp(); x = ARENA.x + ARENA.w / 2; y = ARENA.y - 70; }
@@ -204,7 +204,7 @@ function nextWave() {
   if (isBossWave(w)) world.queue.push('boss'); // pop() takes from the end, so the boss arrives first
   world.spawnT = 2;
   world.pows = world.pows.filter(p => p.type !== 'stash'); // last wave's unopened stashes expire
-  for (let i = 0; i < BAL.map.stashes; i++) { // DATA STASHES: creds + XP out on the map, worth the detour (boss waves: inside the arena)
+  for (let i = 0; i < BAL.map.stashes; i++) { // DATA STASHES: bytes + XP out on the map, worth the detour (boss waves: inside the arena)
     const [x, y] = isBossWave(w) ? [ARENA.x + rand(120, ARENA.w - 120), ARENA.y + rand(120, ARENA.h - 120)] : farSpot(450, 120);
     world.pows.push({ id: world.nid++, type: 'stash', x, y, t: BAL.map.stashLife });
   }
@@ -258,7 +258,7 @@ function killBug(b, mine) { // runs on every machine for effects; only the host 
   if (mine) {
     me.chain++; me.chainT = 2.2; me.kills++; smokeChain(b);
     if (b.frz > 0 && me.cp.dump && me.noCharge <= 0) me.sup = Math.min(100, me.sup + 4 * me.cp.dump); // CORE DUMP
-    const m = 1 + Math.floor(me.chain / 5), pts = Math.round(D.pts * m * dif().score * mutScore() * (world.autoskip ? AUTO_SKIP_SCORE : 1)); me.score += pts; // score only: creds ignore the chain
+    const m = 1 + Math.floor(me.chain / 5), pts = Math.round(D.pts * m * dif().score * mutScore() * (world.autoskip ? AUTO_SKIP_SCORE : 1)); me.score += pts; // score only: bytes ignore the chain
     if (!b.kid && !D.part && !boss) earn(D.pts * BAL.eco.kill, D.pts * BAL.xp.kill);
     if (me.noCharge <= 0) me.sup = Math.min(100, me.sup + D.charge * (1 + SUPER_GAIN[Math.min(4, me.up.battery)]) * (1 + cwMod('sup'))); // supers can't refill themselves
     if (SET.numbers) pop(b.x, b.y - b.r, '+' + fmt(pts) + (m > 1 ? ' x' + m : ''), m > 1 ? PAL.gold : PCOL[myColor], boss ? 26 : big ? 22 : 15);

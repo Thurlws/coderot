@@ -252,13 +252,13 @@ function bossEvents() {
       const msg = { spaghetti: ['NOODLES CUT', 'STUNNED · 2x DAMAGE'], bsod: ['REBOOT FAILED', 'STUNNED · 2x DAMAGE'], deploy: ['LAUNCH ABORTED', 'ARMOR DOWN · 2x DAMAGE'] }[ai];
       if (msg) { banner = { t: 2.2, big: msg[0], sub: msg[1] }; cue('update'); }
     }
-    if (ai === 'monolith') { const open = au > 0; if (open && b.wOpen === false) { banner = { t: 2, big: 'CORE EXPOSED', sub: 'hit it now · pillars rebuild in 6s' }; cue('armorbreak'); } b.wOpen = open; }
+    if (ai === 'monolith') { const open = au > 0; if (open && b.wOpen === false) { banner = { t: 2, big: 'CORE EXPOSED', sub: 'pillars rebuild in 6s' }; cue('armorbreak'); } b.wOpen = open; }
     if (ai === 'bsod') {
-      if (au > 0 && !(b.wAux > 0)) { banner = { t: 2, big: 'REBOOTING', sub: 'hit the QR code before 100%!' }; cue('uiglitch'); cue('loadstart'); }
-      if (b.wAux > 0 && au === 0 && !stn) { banner = { t: 2, big: 'REBOOTED', sub: 'it healed 15% · hit the QR code harder' }; }
+      if (au > 0 && !(b.wAux > 0)) { banner = { t: 2, big: 'REBOOTING', sub: 'QR code exposed · heals at 100%' }; cue('uiglitch'); cue('loadstart'); }
+      if (b.wAux > 0 && au === 0 && !stn) { banner = { t: 2, big: 'REBOOTED', sub: 'healed 15%' }; }
     }
     if (ai === 'deploy' && b.wAux !== undefined && b.wAux < 3 && au > LAUNCH_T - 10 && !stn) {
-      banner = { t: 2.6, big: 'DEPLOYED TO PROD', sub: 'rot everywhere · it healed 10% · break the CI pods next time' };
+      banner = { t: 2.6, big: 'DEPLOYED TO PROD', sub: 'rot everywhere · healed 10%' };
       flash = 1; flashCol = '255,62,52'; shake = 30; glitch = .8; cue('cannon');
     }
     b.wStn = stn; b.wAux = au;

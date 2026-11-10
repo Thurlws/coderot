@@ -14,7 +14,7 @@ placeTouch();
 addEventListener('keydown', e => {
   if (!bootEl.hidden) { if (!e.repeat) { e.preventDefault(); dismissBoot(); } return; }
   if (!cwEl.hidden) { if (e.code === 'Escape') cwBack(); return; } // zoom -> overview -> close
-  if (!shopEl.hidden) { if (e.code === 'Escape') closeShop(); if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat) ptCycle(e.code === 'KeyE' ? 1 : -1); return; }
+  if (!shopEl.hidden) { if (e.code === 'Escape') shopBack(); if ((e.code === 'KeyQ' || e.code === 'KeyE') && !e.repeat) ptCycle(e.code === 'KeyE' ? 1 : -1); return; }
   const setOpen = !document.getElementById('settings').hidden;
   if (setOpen && e.code === 'Escape') { closeSettings(); return; }
   if (e.target.tagName === 'INPUT') { if (e.code === 'Enter' && e.target.id === 'code') document.getElementById('join').click(); return; }
@@ -89,7 +89,7 @@ addEventListener('contextmenu', e => {
   e.preventDefault();
   if (!bootEl.hidden) return;
   if (!cwEl.hidden) cwBack();
-  else if (!shopEl.hidden) closeShop();
+  else if (!shopEl.hidden) shopBack();
   else if (!document.getElementById('settings').hidden) closeSettings();
   else if (mode === 'game' && paused && world.phase === 'play') { paused = false; cue('close'); }
 });

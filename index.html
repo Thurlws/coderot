@@ -50,7 +50,7 @@
   <span class="label">Difficulty</span>
   <div class="diffs" id="diffs" role="group" aria-label="Difficulty"></div>
   <p id="diffinfo"></p>
-  <label class="opt" title="The next wave starts as soon as the current one stops spawning. Also in the pause menu."><input type="checkbox" id="autoskip"> Wave skip <small>points x1.25</small></label>
+  <label class="opt" title="Next wave starts once spawning stops."><input type="checkbox" id="autoskip"> Wave skip <small>points x1.25</small></label>
  </section>
  <section class="panel cp extras" aria-label="Run options">
   <h2 class="head">RUN CONFIG</h2>
@@ -80,28 +80,39 @@
 <aside id="admin" aria-label="Admin sandbox" hidden></aside>
 <button id="admintoggle" type="button" hidden>ADMIN</button>
 
-<!-- CHARACTER: one perk tree per attribute + an INVENTORY tab (weapons). Nodes joined by circuit traces, hold to buy -->
-<div id="shop" role="dialog" aria-modal="true" aria-labelledby="shoptitle" hidden>
+<!-- CHARACTER: ATTRIBUTES overview (five plates around your LEVEL: hold one to raise it, click to open its perk tree) + INVENTORY (weapons) -->
+<div id="shop" role="dialog" aria-modal="true" aria-labelledby="shoptitle" data-view="attr" hidden>
   <header class="cwtop">
     <div class="cwid"><b id="shopnick"></b><span id="shoplv">CHARACTER</span></div>
     <h2 id="shoptitle" class="sr">CHARACTER</h2>
-    <nav class="cwtabs" id="shoptabs" aria-label="Attributes and inventory"></nav>
+    <nav class="cwtabs" id="shoptabs" aria-label="Character"></nav>
     <span id="shopwallet" class="money"></span>
   </header>
-  <div class="ptgrid">
-    <aside class="ptside">
-      <div class="ptlv"><span class="label" id="ptkind">Attribute</span><b id="ptname"></b><span id="ptrole"></span></div>
-      <div class="ptclasses" id="ptclasses"></div>
-      <div class="ptpts"><span class="ptchip" aria-hidden="true"></span><b id="ptpts"></b><span id="ptptsl">Perk points<br>available</span></div>
-      <div class="ptpts att"><span class="ptchip" aria-hidden="true"></span><b id="ptapts"></b><span>Attribute points<br>available</span></div>
-      <div class="ptprog"><p class="label">Tree progress <b id="ptprog"></b></p><div class="ptbar" id="ptbar" aria-hidden="true"></div>
-        <p class="micro">PRK INDEX 0451-CR7 · SIGNED BUILD</p></div>
+  <div class="atgrid" id="atview">
+    <aside class="atside">
+      <div class="ptpts att"><span class="ptchip" aria-hidden="true"></span><b id="atapts"></b><span>Attribute points<br>available</span></div>
+      <div class="ptpts"><span class="ptchip" aria-hidden="true"></span><b id="atppts"></b><span>Perk points<br>available</span></div>
+      <p class="atnote" id="atnote"></p>
       <div id="ptrespec"></div>
       <label class="opt"><input type="checkbox" id="metaonline"> Upgrades + cyberware in rooms I host <small>off = base stats</small></label>
+      <p class="micro" aria-hidden="true">ATR MATRIX 0451-CR7 · 5 CHANNELS · SIGNED BUILD</p>
     </aside>
-    <div class="ptree"><div id="ptcanvas"><svg id="pttraces" aria-hidden="true"></svg><div id="ptnodes"></div><aside class="pttip" id="pttip" aria-live="polite" hidden></aside></div></div>
+    <div class="atmid" id="atmid"><div class="athex" id="athex"></div></div>
+    <aside class="atcard cwtip cp" id="atcard" aria-live="polite"></aside>
   </div>
-  <footer class="prompts"><span><kbd>HOLD</kbd> Unlock / buy</span><span><kbd>Q</kbd><kbd>E</kbd> Switch tab</span><button id="shopdone" class="btn btn--secondary cp"><kbd>ESC</kbd> CLOSE</button></footer>
+  <div class="ptgrid" id="ptview">
+    <aside class="ptside">
+      <div class="ptlv"><span class="label" id="ptkind">Level</span><b id="ptname"></b><span id="ptrole"></span></div>
+      <div class="ptpts"><span class="ptchip" aria-hidden="true"></span><b id="ptpts"></b><span id="ptptsl">Perk points<br>available</span></div>
+      <div class="ptclasses" id="ptclasses"></div>
+      <div class="ptprog"><p class="label">Tree progress <b id="ptprog"></b></p><div class="ptbar" id="ptbar" aria-hidden="true"></div>
+        <p class="micro">PRK INDEX 0451-CR7 · SIGNED BUILD</p></div>
+    </aside>
+    <div class="ptmain"><div class="pthead" id="ptsub"></div>
+      <div class="ptree"><div class="ptstage" id="ptstage"><div id="ptcanvas"><svg id="pttraces" aria-hidden="true"></svg><div id="ptnodes"></div></div></div>
+        <aside class="pttip" id="pttip" aria-live="polite" hidden></aside></div></div>
+  </div>
+  <footer class="prompts" id="shopprompts"></footer>
 </div>
 
 <div id="settings" class="panel cp dialog" role="dialog" aria-modal="true" aria-labelledby="settitle" hidden>
@@ -110,7 +121,8 @@
   <label class="opt"><input type="checkbox" id="s-shake"> Screen shake</label>
   <label class="opt"><input type="checkbox" id="s-flash"> Screen flashes</label>
   <label class="opt"><input type="checkbox" id="s-glitch"> Glitch and RGB-split effects</label>
-  <label class="opt"><input type="checkbox" id="s-particles"> Full particles <small>off = fewer, smoother on older devices</small></label>
+  <label class="opt"><input type="checkbox" id="s-bloom"> Bloom</label>
+  <label class="opt"><input type="checkbox" id="s-particles"> Full particles <small>off = fewer</small></label>
   <label class="opt"><input type="checkbox" id="s-numbers"> Score numbers on kills</label>
   <p class="section">Audio</p>
   <label class="opt"><input type="checkbox" id="s-music"> Music <small>menu theme · combat · boss</small></label>

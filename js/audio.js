@@ -57,6 +57,16 @@ function cue(n, v = 1, rate = 1, gap = .035) {
   voices++; s.onended = () => voices--;
   return { s, g };
 }
+// Hold-to-confirm charge: a rising filtered saw (synthesised, no sample) that starts after `delay` s and peaks at `dur`. Returns stop().
+function holdTone(dur, delay = 0) {
+  if (!AC || !sfxVol()) return null;
+  const n = AC.currentTime, t = n + delay, v = .08 * sfxVol(), o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(640, t + dur);
+  f.type = 'lowpass'; f.Q.value = 7; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3400, t + dur);
+  g.gain.setValueAtTime(0, n); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .6, t + .04); g.gain.linearRampToValueAtTime(v, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .03);
+  o.connect(f).connect(g).connect(OUT); o.start(n); o.stop(t + dur + .05);
+  return () => { const c = AC.currentTime; g.gain.cancelScheduledValues(c); g.gain.setValueAtTime(g.gain.value, c); g.gain.linearRampToValueAtTime(0, c + .04); o.stop(c + .06); };
+}
 // A looping cue (the Sandevistan bed). Returns a stop(fade) function.
 function loopCue(n, v = 1) {
   const b = BUF[n], vol = (CUE[n] || 1) * v * sfxVol();

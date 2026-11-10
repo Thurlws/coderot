@@ -147,57 +147,198 @@ function drawWire() { // FIBER WHIP lash
 }
 
 // ---------- enemies ----------
-function eyes(r, a, col = '#fff', angry) {
-  X.fillStyle = col;
-  for (const s of [-1, 1]) {
-    const ex = Math.cos(a) * r * .28 - Math.sin(a) * r * .26 * s, ey = Math.sin(a) * r * .28 + Math.cos(a) * r * .26 * s;
-    X.beginPath(); X.arc(ex, ey, r * .15, 0, 7); X.fill();
-    if (angry) { X.strokeStyle = col; X.lineWidth = 2; X.beginPath(); X.moveTo(ex - r * .2, ey - r * .25 * s); X.lineTo(ex + r * .2, ey - r * .1 * s); X.stroke(); }
-  }
-}
 function drawLoot(x, y, col, label, tip, t) {
   X.save(); X.translate(x, y + Math.sin(t * 4 + x) * 4); X.rotate(t * 2);
   X.shadowColor = col; X.shadowBlur = 22; X.strokeStyle = col; X.lineWidth = 3; X.strokeRect(-12, -12, 24, 24);
   X.fillStyle = col; X.fillRect(-5, -5, 10, 10); X.restore();
   txt(label, x, y + 30, 10, col); if (tip) txt(tip, x, y + 42, 9, col, MONO, 'center', .7);
 }
+'use strict';
+// ---------- enemies v2: armoured, angular, one hot optic each. Drawn facing +x (the caller rotates to the bug's heading) ----------
+const EN_DARK = '#140A0E'; // cp-ok: enemy art palette
+function enPts(P, r) { X.beginPath(); P.forEach(([x, y], i) => i ? X.lineTo(x * r, y * r) : X.moveTo(x * r, y * r)); X.closePath(); }
+function enHull(P, r, col, hit, blur = 12, lw = 1.6) { // dark armour plate, hot edge
+  enPts(P, r); X.fillStyle = hit ? '#fff' : EN_DARK; X.shadowColor = col; X.shadowBlur = blur * scale; X.fill(); X.shadowBlur = 0;
+  X.strokeStyle = col; X.lineWidth = lw; X.lineJoin = 'miter'; X.stroke();
+}
+function enOptic(x, y, w, h, col) { // a hot slit: white core inside a coloured bloom
+  X.shadowColor = col; X.shadowBlur = 10 * scale; X.fillStyle = col; X.fillRect(x - w / 2, y - h / 2, w, h);
+  X.shadowBlur = 0; X.fillStyle = '#fff'; X.fillRect(x - w / 4, y - h / 4, w / 2, h / 2);
+}
+function enLeg(x0, y0, x1, y1, x2, y2) { X.beginPath(); X.moveTo(x0, y0); X.lineTo(x1, y1); X.lineTo(x2, y2); X.stroke(); }
+
+function drawMite(b, t, D, r, hit) { // BUG: a carapaced mite. Tripod gait, snapping mandibles, two optic slits
+  const g = t * 16 + b.ph;
+  X.strokeStyle = D.col; X.lineWidth = 1.6; X.lineJoin = 'miter'; X.lineCap = 'butt';
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const sw = Math.sin(g + i * 2.1 + (s > 0 ? Math.PI : 0)) * .24 * r, hx = (.35 - i * .42) * r;
+    enLeg(hx, s * .45 * r, hx + (.12 - i * .1) * r + sw * .5, s * 1.08 * r, hx + (.42 - i * .38) * r + sw, s * 1.55 * r);
+  }
+  const m = .16 + .16 * Math.max(0, Math.sin(t * 9 + b.ph)); X.lineWidth = 2;
+  for (const s of [-1, 1]) enLeg(.8 * r, s * .28 * r, 1.38 * r, s * (.28 + m) * r, 1.55 * r, s * .06 * r);
+  enHull([[1, 0], [.62, -.55], [-.35, -.7], [-1.05, -.4], [-1.25, 0], [-1.05, .4], [-.35, .7], [.62, .55]], r, D.col, hit);
+  enPts([[1, 0], [.62, -.55], [.36, -.44], [.36, .44], [.62, .55]], r); X.fillStyle = hexA(D.col, .4); X.fill();
+  X.strokeStyle = hexA(D.col, .5); X.lineWidth = 1; X.beginPath();
+  for (const sx of [-.15, -.5, -.82]) { const e = .64 - Math.abs(sx) * .25; X.moveTo(sx * r, -e * r); X.lineTo((sx - .14) * r, 0); X.lineTo(sx * r, e * r); }
+  X.stroke();
+  X.fillStyle = D.col; X.globalAlpha = .45 + .45 * Math.sin(t * 7 + b.ph); X.fillRect(-1.05 * r, -1, .85 * r, 2); X.globalAlpha = 1;
+  enOptic(.62 * r, -.2 * r, r * .2, r * .13, D.col); enOptic(.62 * r, .2 * r, r * .2, r * .13, D.col);
+}
+
+function drawShard(b, t, D, r, hit) { // GLITCH: an RGB-split blade that tears through frames
+  const P = [[1.75, 0], [-.45, -.9], [-.1, 0], [-.45, .9]];
+  X.strokeStyle = hexA(D.col, .35); X.lineWidth = 1; X.beginPath();
+  for (const y of [-.5, 0, .5]) { const l = 1 + ((t * 7 + y * 3 + b.ph) % 1) * 1.8; X.moveTo(-.6 * r, y * r); X.lineTo(-(.6 + l) * r, y * r); }
+  X.stroke();
+  const j = (Math.sin(t * 31 + b.ph) > .82) ? 4 : 1.6;
+  X.globalCompositeOperation = 'lighter'; X.lineWidth = 1.2; X.globalAlpha = .6;
+  for (const [c, dx, dy] of [['#FF3E34', -j, -j * .6], ['#5EF6FF', j * .4, j]]) { X.save(); X.translate(dx, dy); enPts(P, r); X.strokeStyle = c; X.stroke(); X.restore(); }
+  X.globalAlpha = 1; X.globalCompositeOperation = 'source-over';
+  enHull(P, r, D.col, hit, 14);
+  X.beginPath(); X.moveTo(1.35 * r, 0); X.lineTo(.1 * r, 0); X.strokeStyle = hexA(D.col, .6); X.lineWidth = 1; X.stroke();
+  if (Math.sin(t * 23 + b.ph * 3) > .7) { // a torn slice: one band of the blade jumps sideways
+    const y0 = (Math.sin(t * 50 + b.ph) * .5) * r; X.save(); X.beginPath(); X.rect(-2 * r, y0, 4 * r, r * .3); X.clip(); X.translate(r * .5, 0);
+    enPts(P, r); X.fillStyle = D.col; X.globalAlpha = .7; X.fill(); X.restore(); X.globalAlpha = 1;
+  }
+  enOptic(.6 * r, 0, r * .4, r * .22, D.col);
+}
+
+function forkShell(r, col, hit, spikes) { // octagonal mine with spikes on its vertices
+  X.fillStyle = col;
+  for (let i = 0; i < 8; i++) {
+    if (!spikes.includes(i)) continue;
+    const a = i * Math.PI / 4 + Math.PI / 8, c = Math.cos(a), s = Math.sin(a), n = .2;
+    X.beginPath(); X.moveTo((c * .8 - s * n) * r, (s * .8 + c * n) * r); X.lineTo(c * 1.42 * r, s * 1.42 * r); X.lineTo((c * .8 + s * n) * r, (s * .8 - c * n) * r); X.fill();
+  }
+  const O = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4 + Math.PI / 8; return [Math.cos(a), Math.sin(a)]; });
+  enHull(O, r, col, hit, 12, 1.8);
+  enPts(O.map(([x, y]) => [x * .58, y * .58]), r); X.strokeStyle = hexA(col, .45); X.lineWidth = 1; X.stroke();
+}
+function drawForkBomb(b, t, D, r, hit) { // FORK BOMB: a spiked mine already splitting in two; the seam burns hotter as it pulses
+  X.rotate(t * 1.2 + b.ph);
+  const gap = (.1 + .12 * (Math.sin(t * 7 + b.ph) * .5 + .5)) * r;
+  X.shadowColor = D.col; X.shadowBlur = 14 * scale; X.fillStyle = hexA(D.col, .55); X.fillRect(-.95 * r, -gap, 1.9 * r, gap * 2); X.shadowBlur = 0; // molten core between the halves
+  for (const s of [-1, 1]) {
+    X.save(); X.beginPath(); X.rect(-2 * r, s > 0 ? 0 : -2 * r, 4 * r, 2 * r); X.clip(); X.translate(0, s * gap);
+    forkShell(r, D.col, hit, [0, 1, 2, 3, 4, 5, 6, 7]); X.restore();
+  }
+  const k = Math.floor(t * 8 + b.ph) % 8; // countdown ring
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; X.fillStyle = i <= k ? D.col : hexA(D.col, .2); X.fillRect(Math.cos(a) * .36 * r - 1.5, Math.sin(a) * .36 * r - 1.5, 3, 3); }
+}
+function drawForklet(b, t, D, r, hit) { // FORK: a torn-off half shell, tumbling, raw seam glowing
+  X.rotate(t * 5 + b.ph);
+  X.save(); X.beginPath(); X.rect(-2 * r, 0, 4 * r, 2 * r); X.clip(); forkShell(r, D.col, hit, [0, 1, 2, 3]); X.restore();
+  X.globalCompositeOperation = 'lighter'; X.shadowColor = D.col; X.shadowBlur = 10 * scale; X.fillStyle = hexA(D.col, .9); X.fillRect(-r, -1, 2 * r, 3);
+  X.shadowBlur = 0; X.globalCompositeOperation = 'source-over';
+  enOptic(0, .45 * r, r * .45, r * .25, D.col);
+}
+
+function drawAdware(b, t, D, r, hit) { // ADWARE: a popup that grew teeth. Fake close box, cables dangling, maw that chews
+  X.rotate(Math.sin(t * 3 + b.ph) * .12);
+  const w = r * 2.2, h = r * 1.8, x0 = -w / 2, y0 = -h / 2;
+  X.strokeStyle = hexA(D.col, .7); X.lineWidth = 1.4;
+  for (let i = 0; i < 4; i++) {
+    const x = x0 + w * (.18 + .21 * i); X.beginPath(); X.moveTo(x, y0 + h);
+    for (let k = 1; k <= 4; k++) X.lineTo(x + Math.sin(t * 6 + i * 1.7 + k) * 3, y0 + h + k * 4.5); X.stroke();
+  }
+  X.shadowColor = D.col; X.shadowBlur = 16 * scale; cpath(x0, y0, w, h, 8, 5); X.fillStyle = hit ? '#fff' : '#1E0910'; X.fill(); X.shadowBlur = 0; // cp-ok: enemy art palette
+  X.strokeStyle = D.col; X.lineWidth = 1.6; X.stroke();
+  X.fillStyle = D.col; X.beginPath(); X.moveTo(x0 + 5, y0); X.lineTo(x0 + w, y0); X.lineTo(x0 + w, y0 + 7); X.lineTo(x0, y0 + 7); X.lineTo(x0, y0 + 5); X.closePath(); X.fill();
+  if (Math.floor(t * 5 + b.ph) % 2) { X.fillStyle = EN_DARK; X.fillRect(x0 + 5, y0 + 2, 3, 3); X.fillRect(x0 + 10, y0 + 2, 3, 3); }
+  X.strokeStyle = EN_DARK; X.lineWidth = 1.4; X.beginPath(); X.moveTo(x0 + w - 7, y0 + 1.5); X.lineTo(x0 + w - 3, y0 + 5.5); X.moveTo(x0 + w - 3, y0 + 1.5); X.lineTo(x0 + w - 7, y0 + 5.5); X.stroke();
+  const my = y0 + h * .64, op = (.12 + .14 * (Math.sin(t * 7 + b.ph) * .5 + .5)) * h, mx0 = x0 + 4, mw = w - 8, n = 7;
+  X.fillStyle = '#3A0712'; X.fillRect(mx0, my - op, mw, op * 2); // cp-ok: enemy art palette
+  X.fillStyle = hit ? D.col : '#FFD9DC'; // cp-ok: enemy art palette
+  for (const s of [-1, 1]) {
+    X.beginPath(); X.moveTo(mx0, my - s * op - s * 2);
+    for (let i = 0; i < n; i++) { X.lineTo(mx0 + mw * (i + .5) / n, my - s * op + s * op * .9); X.lineTo(mx0 + mw * (i + 1) / n, my - s * op - s * 2); }
+    X.closePath(); X.fill();
+  }
+  X.strokeStyle = D.col; X.lineWidth = 1; X.strokeRect(mx0, my - op - 2, mw, op * 2 + 4);
+  for (const s of [-1, 1]) { // slanted angry slits
+    X.save(); X.translate(s * w * .22, y0 + h * .3); X.rotate(s * .35); enOptic(0, 0, r * .5, r * .16, D.col); X.restore();
+  }
+}
+
+function drawLeak(b, t, D, r, hit) { // MEMORY LEAK: corrupted ooze with a hex lattice, too many eyes, bytes dripping off
+  const N = 22, P = [];
+  for (let i = 0; i < N; i++) { const a = i / N * 6.283, rr = 1 + .1 * Math.sin(a * 3 + t * 4 + b.ph) + .06 * Math.sin(a * 7 - t * 6); P.push([Math.cos(a) * rr, Math.sin(a) * rr]); }
+  for (let i = 0; i < 3; i++) { const f = (t * .7 + i / 3 + b.ph) % 1; X.globalAlpha = 1 - f; X.fillStyle = D.col; X.fillRect((-1.05 - f * 1.4) * r, (i - 1) * .45 * r, 4 - f * 2, 4 - f * 2); }
+  X.globalAlpha = 1;
+  enPts(P, r); X.save(); X.clip();
+  const gr = X.createRadialGradient(0, 0, r * .1, 0, 0, r * 1.1); gr.addColorStop(0, hit ? '#fff' : '#05101F'); gr.addColorStop(1, hexA(D.col, .75)); // cp-ok: enemy art palette
+  X.fillStyle = gr; X.fillRect(-1.3 * r, -1.3 * r, 2.6 * r, 2.6 * r);
+  X.strokeStyle = hexA(D.col, .3); X.lineWidth = 1; X.beginPath();
+  const hs = r * .32;
+  for (let q = -3; q <= 3; q++) for (let p = -3; p <= 3; p++) {
+    const cx = p * hs * 1.5, cy = (q + (p & 1) * .5) * hs * 1.73;
+    for (let k = 0; k <= 6; k++) { const a = k * Math.PI / 3; k ? X.lineTo(cx + Math.cos(a) * hs, cy + Math.sin(a) * hs) : X.moveTo(cx + hs, cy); }
+  }
+  X.stroke(); X.restore();
+  enPts(P, r); X.shadowColor = D.col; X.shadowBlur = 18 * scale; X.strokeStyle = D.col; X.lineWidth = 2; X.stroke(); X.shadowBlur = 0;
+  const E = [[.3, -.25, 1], [.42, .22, .8], [-.15, -.45, .6], [-.25, .35, .7], [.05, 0, 1.2]];
+  E.forEach(([ex, ey, s], i) => { const bl = Math.sin(t * 2.3 + i * 1.9 + b.ph) > .85 ? .15 : 1; enOptic(ex * r, ey * r, r * .26 * s, r * .14 * s * bl, PAL.rot); });
+}
+
+function drawTrojanOpen(b, t, D, r, hit) { // TROJAN unmasked: the loot crate split open on four scythe legs, one red eye in the gap
+  const st = Math.sin(t * 12 + b.ph), gap = (.16 + .07 * Math.sin(t * 9 + b.ph)) * r;
+  X.fillStyle = D.col; X.shadowColor = D.col; X.shadowBlur = 8 * scale;
+  for (let i = 0; i < 4; i++) { // scythe blades out of the crate's corners, stabbing in turn
+    X.save(); X.rotate(i * Math.PI / 2 + Math.PI / 4 + (i % 2 ? st : -st) * .15);
+    enPts([[.55, -.14], [1.35, -.34], [1.9, .12], [1.4, -.06], [.55, .14]], r); X.fill(); X.restore();
+  }
+  X.shadowBlur = 0;
+  X.save(); X.rotate(-Math.PI / 4); X.shadowColor = PAL.rot; X.shadowBlur = 16 * scale; X.fillStyle = hexA(PAL.rot, .85); X.fillRect(-1.05 * r, -gap, 2.1 * r, gap * 2); X.shadowBlur = 0; X.restore();
+  for (const s of [-1, 1]) {
+    X.save(); X.translate(s * gap * .7, -s * gap * .7);
+    enPts(s < 0 ? [[-1, -1], [1, -1], [-1, 1]] : [[1, -1], [1, 1], [-1, 1]], r * .78); X.fillStyle = hit ? '#fff' : EN_DARK; X.fill(); X.strokeStyle = D.col; X.lineWidth = 1.8; X.stroke();
+    X.fillStyle = hexA(D.col, .35); enPts(s < 0 ? [[-.8, -.8], [-.2, -.8], [-.8, -.2]] : [[.8, .8], [.2, .8], [.8, .2]], r * .78); X.fill();
+    X.restore();
+  }
+  X.save(); X.rotate(-Math.PI / 4); enOptic(0, 0, r * .9, r * .22, PAL.rot); X.restore();
+}
+
+function drawSegfault(b, t, D, r, hit) { // SEGFAULT: an armoured crab tank. Pincers, glowing fault lines, a scanning visor
+  const g = t * 6 + b.ph;
+  X.strokeStyle = D.col; X.lineWidth = 2.5; X.lineJoin = 'miter';
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const sw = Math.sin(g + i * 2 + (s > 0 ? Math.PI : 0)) * .12 * r, hx = (.2 - i * .38) * r;
+    enLeg(hx, s * .7 * r, hx + .05 * r + sw, s * 1.12 * r, hx - .1 * r + sw * 1.5, s * 1.32 * r);
+  }
+  const op = .1 + .28 * Math.max(0, Math.sin(t * 3.5 + b.ph));
+  for (const s of [-1, 1]) { // arm out of the shoulder, then a crab claw: fixed lower jaw, upper jaw that snaps
+    X.lineWidth = 3.5; X.beginPath(); X.moveTo(.55 * r, s * .6 * r); X.lineTo(.95 * r, s * .82 * r); X.lineTo(1.12 * r, s * .62 * r); X.stroke();
+    X.save(); X.translate(1.12 * r, s * .62 * r); X.scale(1, s);
+    enHull([[-.08, .1], [.25, .2], [.62, .02], [.2, -.02]], r, D.col, hit, 8, 2);
+    X.rotate(-op); enHull([[-.08, -.05], [.3, -.3], [.72, -.12], [.5, -.06], [.2, -.02]], r, D.col, hit, 8, 2);
+    X.restore();
+  }
+  const S = [[.95, 0], [.68, -.72], [-.15, -.95], [-.85, -.72], [-1.05, 0], [-.85, .72], [-.15, .95], [.68, .72]];
+  enHull(S, r, D.col, hit, 18, 2.5);
+  enPts([[.55, -.12], [-.95, -.1], [-.95, .1], [.55, .12]], r); X.fillStyle = hexA(D.col, .3); X.fill(); // spine ridge
+  X.strokeStyle = hexA(D.col, .55); X.lineWidth = 1.5; X.beginPath(); // armour bands
+  for (const sx of [.35, -.1, -.55]) { const e = .9 - Math.abs(sx + .1) * .35; X.moveTo(sx * r, -e * r); X.lineTo((sx - .22) * r, 0); X.lineTo(sx * r, e * r); }
+  X.stroke();
+  X.globalCompositeOperation = 'lighter'; X.lineWidth = 1.5; X.strokeStyle = '#fff';
+  X.globalAlpha = .45 + .45 * Math.abs(Math.sin(t * 5 + b.ph));
+  X.shadowColor = D.col; X.shadowBlur = 10 * scale; X.beginPath();
+  X.moveTo(-.2 * r, -.9 * r); X.lineTo(-.05 * r, -.55 * r); X.lineTo(-.3 * r, -.3 * r); X.lineTo(-.1 * r, 0);
+  X.moveTo(-.75 * r, .55 * r); X.lineTo(-.45 * r, .4 * r); X.lineTo(-.55 * r, .15 * r);
+  X.stroke(); X.shadowBlur = 0; X.globalAlpha = 1; X.globalCompositeOperation = 'source-over';
+  X.fillStyle = '#05070B'; enPts([[.86, -.38], [.62, -.46], [.62, .46], [.86, .38]], r); X.fill(); // cp-ok: enemy art palette
+  enOptic(.74 * r, Math.sin(t * 2 + b.ph) * .3 * r, r * .14, r * .22, D.col);
+}
+
+// dispatcher, same contract as the game's drawBug body (caller already translated to the bug)
+const DRAW_BUG = { crawl: drawMite, zip: drawShard, fork: drawForkBomb, forklet: drawForklet, adware: drawAdware, leak: drawLeak, trojan: drawTrojanOpen, seg: drawSegfault };
 function drawBug(b, t) {
-  const D = BUG[b.type], r = b.r, a = Math.atan2(b.vy, b.vx), flash = b.hit > 0;
+  const D = BUG[b.type], r = b.r;
   if (b.type === 'trojan' && !b.rev) return drawLoot(b.x, b.y, PAL.gold, 'FREE RAM?', 'totally safe', t);
   if (b.type === 'boss') return drawBoss(b, t);
   if (D.part) return drawPart(b, t);
   if (b.type === 'lock' || b.type === 'cache' || b.type === 'zombie') return drawElite(b, t);
-  X.save(); X.translate(b.x, b.y);
-  if (b.type === 'adware') { // a popup window with a face
-    X.rotate(Math.sin(t * 3 + b.ph) * .15);
-    X.shadowColor = D.col; X.shadowBlur = 18; X.fillStyle = flash ? '#fff' : '#31181E'; X.fillRect(-r, -r * .8, r * 2, r * 1.6);
-    X.shadowBlur = 0; X.fillStyle = D.col; X.fillRect(-r, -r * .8, r * 2, 7);
-    X.strokeStyle = D.col; X.lineWidth = 2; X.strokeRect(-r, -r * .8, r * 2, r * 1.6);
-    X.fillStyle = '#fff'; X.fillRect(r - 6, -r * .8 + 1, 5, 5);
-    txt('AD', 0, r * .55, 9, D.col);
-    X.translate(0, -2); eyes(r * .9, 0, '#fff', true);
-  } else if (b.type === 'leak') { // wobbling puddle
-    X.globalAlpha = .85; X.fillStyle = flash ? '#fff' : D.col; X.shadowColor = D.col; X.shadowBlur = 20;
-    X.beginPath();
-    for (let i = 0; i <= 16; i++) { const aa = i / 16 * 6.283, rr = r * (1 + .12 * Math.sin(aa * 3 + t * 4 + b.ph)); X.lineTo(Math.cos(aa) * rr, Math.sin(aa) * rr); }
-    X.fill(); X.shadowBlur = 0; X.globalAlpha = 1;
-    X.fillStyle = 'rgba(14,14,23,.6)'; X.beginPath(); X.arc(0, 0, r * .55, 0, 7); X.fill();
-    eyes(r, a);
-  } else {
-    X.strokeStyle = D.col; X.lineWidth = b.type === 'seg' ? 3 : 2; X.lineCap = 'round';
-    for (let i = 0; i < 6; i++) {
-      const la = a + Math.PI / 2 * (i < 3 ? 1 : -1) + (i % 3 - 1) * .55, wig = Math.sin(t * 18 + i + b.ph) * .25;
-      X.beginPath(); X.moveTo(Math.cos(la) * r * .6, Math.sin(la) * r * .6); X.lineTo(Math.cos(la + wig) * r * 1.45, Math.sin(la + wig) * r * 1.45); X.stroke();
-    }
-    const pulse = 1 + Math.sin(t * 8 + b.ph) * .06;
-    X.shadowColor = D.col; X.shadowBlur = 18; X.fillStyle = flash ? '#fff' : D.col;
-    X.beginPath(); X.arc(0, 0, r * pulse, 0, 7); X.fill(); X.shadowBlur = 0;
-    X.fillStyle = '#351113'; X.beginPath(); X.arc(0, 0, r * .62, 0, 7); X.fill();
-    if (b.type === 'fork' || b.type === 'forklet') { txt('&', 0, r * .3, r, D.col, MONO); }
-    if (b.type === 'trojan') { X.fillStyle = D.col; for (const s of [-1, 1]) { X.beginPath(); X.moveTo(s * r * .4, -r * .7); X.lineTo(s * r * .9, -r * 1.5); X.lineTo(s * r * .1, -r * .9); X.fill(); } }
-    eyes(r, a, '#fff', b.type === 'trojan');
-  }
-  X.restore();
+  X.save(); X.translate(b.x, b.y); if (b.type !== 'adware') X.rotate(Math.atan2(b.vy, b.vx));
+  DRAW_BUG[b.type](b, t, D, r, b.hit > 0); X.restore();
   if (b.frz > 0) { X.strokeStyle = PAL.ice; X.lineWidth = 2; X.globalAlpha = .8; X.beginPath(); X.arc(b.x, b.y, r + 6, 0, 7); X.stroke(); X.globalAlpha = 1; }
   if (b.type === 'seg' || b.type === 'leak' || b.type === 'adware') hpBar(b, D.col);
 }
@@ -860,9 +1001,9 @@ function drawHUD(t) {
   if (dk) cells(bx, y0 + 30, ramMax(), me.ram, PAL.cyan);
   txt('SCORE', x0, y0 + 70, 10, PAL.label, DISP, 'left');
   txt(fmt(me.score), x0 + 38, y0 + 71, 17, PAL.white, DISP, 'left');
-  if (!adminMode) { // this run's earnings: creds + a slim bar of XP toward your next level
+  if (!adminMode) { // this run's earnings: bytes + a slim bar of XP toward your next level
     const cx2 = x0 + 46 + Math.max(110, tw(fmt(me.score), 17)), L = lvInfo();
-    txt('◆ ' + fmt(runCreds), cx2, y0 + 71, 14, PAL.gold, DISP, 'left');
+    txt('¤ ' + fmt(runBytes), cx2, y0 + 71, 14, PAL.gold, DISP, 'left');
     if (L.need) { X.fillStyle = hexA(PAL.gold, .15); X.fillRect(cx2, y0 + 75, 80, 2); X.fillStyle = PAL.gold; X.fillRect(cx2, y0 + 75, 80 * L.into / L.need, 2); }
   }
   let cx = x0; const chipsY = y0 + 80;
@@ -954,7 +1095,7 @@ function drawHUD(t) {
   txt(supName(), rx, H - 70, 13, act || ready ? PAL.gold : PAL.red, DISP, 'right');
   cells(rx - row - 4, H - 58, 10, act ? 10 * me.superT / me.superMax : me.sup / 10, act || ready ? PAL.gold : PAL.cyan, cw2, 26, gap, 4);
   if (dk && me.supUses === 1 && !act) txt('RE-RUN ↓' + supRam() + ' RAM · ' + (touchMode ? 'TAP SUPER' : 'Q'), rx, H - 88, 10, me.ram >= supRam() ? PAL.ice : PAL.label, DISP, 'right');
-  txt(act ? 'ACTIVE · ' + me.superT.toFixed(1) + 's' : ready ? 'READY · ' + (touchMode ? 'TAP SUPER' : 'PRESS Q') : 'SUPER', rx, H - 16, 10, act || ready ? PAL.gold : PAL.label, DISP, 'right');
+  txt(act ? 'ACTIVE · ' + me.superT.toFixed(1) + 's' : ready ? 'READY · ' + (touchMode ? 'TAP' : 'Q') : 'SUPER', rx, H - 16, 10, act || ready ? PAL.gold : PAL.label, DISP, 'right');
   if (me.t < 9 && world.wave === 1 && !touchMode) txt('WASD move · mouse aim · click shoot · Shift dash · E skill · Q super' + (dk ? ' · hold F scan' : os ? ' · C ' + os.name : ''), W / 2, H - 24, 12, PAL.dim, MONO, 'center', clamp(9 - me.t, 0, 1));
 }
 
@@ -971,7 +1112,7 @@ const bossAlive = () => world.bugs.find(b => b.type === 'boss' && !b.dead);
 function drawUpgrades(t) { // item cards: rarity bar by level, keycap, cyan frame on hover
   if (!me.offer || world.phase !== 'play' || paused) return;
   const cw = 240, chh = 104, gap = 14, x0 = W / 2 - (cw * 3 + gap * 2) / 2, y = H - 200;
-  txt('PICK AN UPGRADE' + (me.picks > 1 ? ' (' + me.picks + ')' : ''), W / 2, y - 12, 15, PAL.gold);
+  txt('UPGRADE' + (me.picks > 1 ? ' ×' + me.picks : ''), W / 2, y - 12, 15, PAL.gold);
   me.offer.forEach((k, i) => {
     const x = x0 + i * (cw + gap), lvl = me.up[k], syn = synFrom(k), tier = TIER[['uncommon', 'rare', 'epic', 'legendary', 'legendary', 'legendary'][lvl] || 'legendary'];
     const over = mouse.seen > 0 && !touchMode && mouse.x > x && mouse.x < x + cw && mouse.y > y && mouse.y < y + chh;
@@ -1245,7 +1386,7 @@ function drawOver(t) { // theme failure: near-black red, data columns, left-alig
   const px = W - 520, py = 150, pw = 440, list = scoreList(), ph = 92 + list.length * 28 + (newUnlocks.length ? 22 : 0) + (adminMode ? 0 : 22 + (runDrops.length ? 22 : 0));
   plate(px, py, pw, ph, 'rgba(14,14,23,.8)', 'rgba(255,97,89,.5)', 10);
   txt('RUN REPORT', px + 16, py + 26, 16, PAL.red, DISP, 'left'); X.fillStyle = 'rgba(255,97,89,.5)'; X.fillRect(px + 16, py + 34, pw - 32, 1);
-  if (!adminMode) { txt('+' + fmt(runCreds) + ' ◆', px + pw - 16, py + 26, 18, PAL.gold, DISP, 'right'); }
+  if (!adminMode) { txt('+' + fmt(runBytes) + ' ¤', px + pw - 16, py + 26, 18, PAL.gold, DISP, 'right'); }
   list.forEach((p, i) => {
     const y = py + 62 + i * 28;
     if (i === 0 && list.length > 1 && p.s > list[1].s) txt('MVP', px + 16, y, 11, PAL.gold, DISP, 'left');
@@ -1255,15 +1396,15 @@ function drawOver(t) { // theme failure: near-black red, data columns, left-alig
   });
   const fy = py + 62 + list.length * 28 + 10;
   txt(newBest ? 'NEW PERSONAL BEST' : 'YOUR BEST ' + fmt(best), px + 16, fy, 13, newBest ? PAL.gold : PAL.label, DISP, 'left');
-  if (!adminMode) txt(fmt(creds) + ' ◆ total', px + pw - 16, fy, 12, PAL.gold, DISP, 'right');
+  if (!adminMode) txt(fmt(bytes) + ' ¤ total', px + pw - 16, fy, 12, PAL.gold, DISP, 'right');
   let uy = fy;
   if (!adminMode) { // XP + level progress, then anything a boss dropped
     const L = lvInfo(); uy += 22;
     txt('+' + fmt(runXp) + ' XP · LEVEL ' + L.lv + (L.need ? ' · ' + Math.floor(L.into / L.need * 100) + '% to ' + (L.lv + 1) : ' · MAX'), px + 16, uy, 12, PAL.gold, DISP, 'left');
-    if (attrPts() + perkPts() > 0) txt('POINTS TO SPEND', px + pw - 16, uy, 11, PAL.cyan, DISP, 'right');
+    if (attrPts() + perkPts() > 0) txt('UNSPENT POINTS', px + pw - 16, uy, 11, PAL.cyan, DISP, 'right');
     if (runDrops.length) { uy += 22; txt('DROPS: ' + runDrops.join(' · '), px + 16, uy, 12, PAL.purple, DISP, 'left'); }
   }
-  if (newUnlocks.length) txt('UNLOCKED: ' + newUnlocks.map(s => s.name).join(', ') + ' · pick it in the menu', px + 16, uy + 22, 12, PAL.purple, DISP, 'left');
+  if (newUnlocks.length) txt('UNLOCKED: ' + newUnlocks.map(s => s.name).join(', '), px + 16, uy + 22, 12, PAL.purple, DISP, 'left');
   if (overT > .8) { const kw = keycap(W - 27 - 150, H - 40, 'ENTER'); txt('Select', W - 27 - 150 + kw + 8, H - 28, 13, PAL.red, DISP, 'left'); }
 }
 function drawPause() { // theme menu: fader, left list, run status panel, footer prompts
@@ -1285,7 +1426,7 @@ function drawPause() { // theme menu: fader, left list, run status panel, footer
   const ph = 128 + Math.ceil(ups.length / 2) * 18 + cw.length * 18;
   plate(px, py, pw, ph, 'rgba(14,14,23,.85)', 'rgba(255,97,89,.5)', 10);
   txt('RUN STATUS', px + 16, py + 26, 16, PAL.red, DISP, 'left'); X.fillStyle = 'rgba(255,97,89,.5)'; X.fillRect(px + 16, py + 34, pw - 32, 1);
-  [['LEVEL', me.lv + ' · ' + WEAPONS[me.wp].name + (me.mk > 1 ? ' MK.' + me.mk : '')], ['WAVE', String(world.wave)], ['SCORE', fmt(me.score)], ['EARNED', fmt(runCreds) + ' ◆ · ' + fmt(runXp) + ' XP']].forEach(([k, v], i) => {
+  [['LEVEL', me.lv + ' · ' + WEAPONS[me.wp].name + (me.mk > 1 ? ' MK.' + me.mk : '')], ['WAVE', String(world.wave)], ['SCORE', fmt(me.score)], ['EARNED', fmt(runBytes) + ' ¤ · ' + fmt(runXp) + ' XP']].forEach(([k, v], i) => {
     txt(k, px + 16, py + 56 + i * 18, 11, PAL.teal, DISP, 'left'); txt(v, px + 110, py + 56 + i * 18, 13, PAL.white, DISP, 'left');
   });
   let ly = py + 56 + 4 * 18 + 6;
@@ -1331,6 +1472,14 @@ function drawEdgePips(t) { // off-screen DATA STASHES (gold) and the boss (red):
   const left = world.queue.length ? [] : world.bugs.filter(o => !o.dead && !isPart(o) && o.type !== 'boss');
   if (left.length && left.length <= BAL.map.pips) for (const o of left) pip(o.x, o.y, PAL.red, 'BUG'); // the wave's last stragglers, wherever they are on the map
 }
+// bloom: the world's bright ink (shots, optics, arcs, pickups) thresholded, blurred at quarter size and added back. HUD stays crisp.
+const BLM = document.createElement('canvas'), BX = BLM.getContext('2d'), CAN_FILTER = typeof BX.filter === 'string';
+function bloom() {
+  const w = C.width >> 2, h = C.height >> 2; if (!SET.bloom || !CAN_FILTER || !w || !h) return;
+  if (BLM.width !== w || BLM.height !== h) { BLM.width = w; BLM.height = h; }
+  BX.globalCompositeOperation = 'copy'; BX.filter = 'contrast(3) brightness(.85) blur(3px)'; BX.drawImage(C, 0, 0, w, h); BX.filter = 'none';
+  X.save(); X.setTransform(1, 0, 0, 1, 0, 0); X.globalCompositeOperation = 'lighter'; X.globalAlpha = .55; X.drawImage(BLM, 0, 0, C.width, C.height); X.restore();
+}
 function draw(t) {
   uiButtons = [];
   if (!C.width || !C.height) return; // minimized / hidden: drawImage on a 0-size canvas throws and would kill the loop
@@ -1339,6 +1488,7 @@ function draw(t) {
   X.setTransform(scale, 0, 0, scale, ox + sx * scale, oy + sy * scale);
   X.save(); X.beginPath(); X.rect(0, 0, W, H); X.clip();
   X.save(); X.translate(-cam.x, -cam.y); drawWorld(t); X.restore();
+  bloom();
   X.textBaseline = 'alphabetic';
   txt('// ' + codeLabel, W - 14, H - 8, 9, PAL.teal, MONO, 'right', .5, false);
   if (mode === 'game' && world.run && world.phase === 'play') drawEdgePips(t);

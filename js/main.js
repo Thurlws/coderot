@@ -19,10 +19,10 @@ function renderClasses() { // the LOADOUT panel: your build at a glance (level, 
     b.type = 'button'; b.className = 'cls'; b.setAttribute('aria-pressed', 'false'); nm.textContent = big; rl.textContent = small;
     b.append(nm, rl); b.onclick = () => openShop(tab); classEl.appendChild(b);
   };
-  card('LEVEL ' + L.lv, L.need ? fmt(L.into) + ' / ' + fmt(L.need) + ' XP' : 'MAX LEVEL', AK.find(a => attrOf(a) < BAL.attr.max) || 'body');
+  card('LEVEL ' + L.lv, L.need ? fmt(L.into) + ' / ' + fmt(L.need) + ' XP' : 'MAX LEVEL', 'attr');
   card(W.name + (mk > 1 ? ' MK.' + mk : ''), 'WEAPON · ' + ATTR[W.attr].name, 'inv');
   card(ABIL[META.ab.skill].name, 'E · ' + ABIL[META.ab.sup].name + ' · Q', PERK[META.ab.skill].at);
-  document.getElementById('wallet').textContent = '◆ ' + fmt(creds) + ' creds';
+  document.getElementById('wallet').textContent = '¤ ' + fmt(bytes) + ' bytes';
   document.getElementById('cwsum').textContent = cwLoad() + '/' + cwCap();
   classInfo.textContent = AK.map(a => ATTR[a].name + ' ' + attrOf(a)).join(' · ') + (pts ? ' · ' + attrPts() + ' attribute + ' + perkPts() + ' perk points to spend in CHARACTER' : '');
   const s = statOf(myDiff);
@@ -97,11 +97,11 @@ const createRoom = () => withBusy(async () => {
   for (let i = 0; i < 3; i++) { // retry if the random code is taken
     try { return await startHosting(newCode()); } catch (e) { if (e.type !== 'unavailable-id') return setMsg(netError(e), true); }
   }
-  setMsg('Could not find a free room code. Try again.', true);
+  setMsg('No free room code.', true);
 });
 const joinByCode = () => withBusy(async () => {
   const code = cleanCode(codeEl.value);
-  if (!code) return setMsg('Type the room code your friend gave you.', true);
+  if (!code) return setMsg('Room code missing.', true);
   try { await startJoining(code); } catch (e) { setMsg(netError(e), true); }
 });
 const quickMatch = () => withBusy(async () => { // host the public room, or join it if someone already does
@@ -144,7 +144,7 @@ function ambient() { world.bugs = []; for (let i = 0; i < 9; i++) world.bugs.pus
 // ---------- settings panel ----------
 const setEl = document.getElementById('settings'), volEl = document.getElementById('s-volume'), volOut = document.getElementById('s-volume-out');
 const mvolEl = document.getElementById('s-mvol'), mvolOut = document.getElementById('s-mvol-out');
-const SET_BOXES = ['shake', 'flash', 'glitch', 'particles', 'numbers', 'music'];
+const SET_BOXES = ['shake', 'flash', 'glitch', 'bloom', 'particles', 'numbers', 'music'];
 function syncSettingsUI() {
   for (const k of SET_BOXES) document.getElementById('s-' + k).checked = SET[k];
   volEl.value = Math.round(SET.volume * 100); volOut.textContent = volEl.value + '%';
@@ -165,9 +165,11 @@ document.getElementById('quick').onclick = quickMatch;
 document.getElementById('create').onclick = createRoom;
 document.getElementById('join').onclick = joinByCode;
 
-// ---------- CHARACTER: one perk tree per attribute (attribute + perk points, from levels) and an INVENTORY tab (weapons, creds). Hold to buy ----------
+// ---------- CHARACTER ----------
+// ATTRIBUTES: five plates around your LEVEL. Hold a plate to spend an attribute point on it; click it to open its perk tree.
+// INVENTORY: weapons (buy, MK upgrades, equip). Perks and weapons are hold-to-buy.
 const shopEl = document.getElementById('shop'), metaEl = document.getElementById('metaonline');
-let ptTab = 'body', ptSel = null, ptHold = null, ptFx = null, respecT = 0;
+let ptView = 'attr', ptTab = 'body', atSel = 'reflex', ptSel = null, ptHold = null, ptFx = null, respecT = 0;
 const PT_ICON = { // original line icons, 24x24
   dmg: 'M12 2v6M12 16v6M2 12h6M16 12h6M12 9l3 3-3 3-3-3z', fire: 'M3 6l6 6-6 6M10 6l6 6-6 6M17 6l4 6-4 6', speed: 'M2 8h14M2 12h18M2 16h14M16 5l5 7-5 7',
   charge: 'M3 7h16v10H3zM19 10h2v4h-2M6 10h3v4H6zM10 10h3v4h-3z', dash: 'M4 5l7 7-7 7M12 5l7 7-7 7', hp: 'M12 2l9 4v6l-3 6-6 4-6-4-3-6V6zM12 8v8M8 12h8',
@@ -181,19 +183,39 @@ const PT_ICON = { // original line icons, 24x24
   lb: 'M2 12h6M8 12l5-7h8M8 12h13M8 12l5 7h8', poll: 'M4 18h10v-6H4zM9 12V8h3M14 15h3M18 13l3 2-3 2', rp: 'M3 4v5h5M4 9a8 8 0 1 1 0 6M12 8v4l3 3',
   pier: 'M2 12h20M18 8l4 4-4 4M7 7v10M12 7v10', soak: 'M6 3h12M6 21h12M7 3l10 9-10 9M17 3L7 12l10 9', reg: 'M4 6l2 2 3-3M11 7h9M4 12l2 2 3-3M11 13h9M4 18l2 2 3-3M11 19h9',
   rep: 'M2 10h9v9H2zM7 6h9v9M12 2h9v9', bite: 'M3 6h18v12H3zM3 10l3 3 3-3 3 3 3-3 3 3 3-3', auto: 'M4 20V10M2 12l2-2 2 2M12 20V6M10 8l2-2 2 2M20 20V3M18 5l2-2 2 2',
-  medic: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z', watchp: 'M2 12l5-5h10l5 5-5 5H7zM12 9v6M9 12h6', macros: 'M3 7h18M3 12h12M3 17h6M17 14l4 3-4 3' };
-const PT_ALIAS = { unit: 'hp', fast: 'fire', lowlat: 'speed', macros: 'macros', head: 'head' };
-const S_ = BAL.stat, pc = v => Math.round(v * 1000) / 10 + '%';
-const ATTR_FX = { // what one attribute point does (from BAL.stat), shown on the CHARACTER screen
-  body: '+1 max HP every ' + S_.body.hpEvery + ' points', reflex: '+' + pc(S_.reflex.speed) + ' move speed, -' + pc(S_.reflex.dash) + ' dash cooldown per point',
-  tech: '+' + S_.tech.cap + ' cyberware capacity, +' + pc(S_.tech.summon) + ' turret / drone damage per point',
-  net: '+1 RAM every ' + S_.net.ramEvery + ' points, -' + pc(S_.net.hack) + ' quickhack upload per point', focus: '+' + pc(S_.focus.crit) + ' crit, +' + pc(S_.focus.sup) + ' super charge per point' };
-const TREES = { ...Object.fromEntries(AK.map(a => [a, { name: ATTR[a].name }])), inv: { name: 'INVENTORY' } };
+  medic: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z', watchp: 'M2 12l5-5h10l5 5-5 5H7zM12 9v6M9 12h6', macros: 'M3 7h18M3 12h12M3 17h6M17 14l4 3-4 3',
+  // stat glyphs: sub-skills without their own icon use their first stat's
+  inv: 'M12 2l8 4v6c0 5-4 8-8 10-4-2-8-5-8-10V6zM9 12l2 2 4-4', deflect: 'M5 3v18M5 12l9-7M5 12l9 7M14 5h6M14 19h6', range: 'M2 12h14M12 8l4 4-4 4M19 6v12M22 9v6',
+  crit: 'M12 2v5M12 17v5M2 12h5M17 12h5M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8', critx: 'M12 2l2 7 7-2-5 5 5 5-7-2-2 7-2-7-7 2 5-5-5-5 7 2z',
+  boss: 'M3 19h18M4 19L3 7l5 4 4-7 4 7 5-4-1 12', oscd: 'M20 12a8 8 0 1 1-3-6M12 8v4l3 2M17 2v4h4', osdur: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5h5',
+  hack: 'M3 4h18v12H3zM8 20h8M12 16v4M7 8l2 2-2 2M11 12h5', bounce: 'M3 5l5 14 5-10 4 6 4-4', ramr: 'M4 6h16v12H4zM12 15V9M9 12l3-3 3 3',
+  shots: 'M3 6h13M3 12h16M3 18h13M14 3l3 3-3 3M17 9l3 3-3 3M14 15l3 3-3 3' };
+const PT_ALIAS = { unit: 'hp', fast: 'fire', lowlat: 'speed', macros: 'macros', head: 'head', pierce: 'pier', ram: 'mem', upload: 'fup', queue: 'qd', supram: 'sbuf', summ: 'poll', pw: 'charge' };
+const AT_ICON = { // the attributes' own glyphs (original), 24x24
+  body: 'M12 2l8 3v8l-8 9-8-9V5zM12 7v10M8 11h8', reflex: 'M13 2L5 13h6l-2 9 9-12h-6l2-8z',
+  tech: 'M8 8h8v8H8zM10 4v4M14 4v4M10 16v4M14 16v4M4 10h4M4 14h4M16 10h4M16 14h4', net: 'M4 4h6v4H4zM14 4h6v4h-6zM9 16h6v4H9zM7 8v4h10V8M12 12v4',
+  focus: 'M12 3v5M12 16v5M3 12h5M16 12h5M9 9h6v6H9z' };
+const AT_POS = { reflex: [0, -250], body: [-210, -125], tech: [210, -125], net: [-210, 125], focus: [210, 125], inv: [0, 250] }; // plate centres around the LEVEL core
+const AT_HEX = 'M45 .5H205L249.5 75L205 149.5H45L.5 75Z', AT_HEX_IN = 'M49 6.5H201L242.5 75L201 143.5H49L7.5 75Z';
+const AT_DIR = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+const S_ = BAL.stat, pc = v => Math.round(v * 1000) / 10 + '%', n1 = v => String(Math.round(v * 10) / 10);
+const ATTR_FX = { // what one attribute point does (from BAL.stat)
+  body: '+1 max HP every ' + S_.body.hpEvery + ' points', reflex: '+' + pc(S_.reflex.speed) + ' move speed, -' + pc(S_.reflex.dash) + ' dash cooldown',
+  tech: '+' + S_.tech.cap + ' cyberware capacity, +' + pc(S_.tech.summon) + ' turret / drone damage',
+  net: '+1 RAM every ' + S_.net.ramEvery + ' points, -' + pc(S_.net.hack) + ' quickhack upload', focus: '+' + pc(S_.focus.crit) + ' crit chance, +' + pc(S_.focus.sup) + ' super charge' };
+function atNow(a) { // what your points above the start value give right now
+  const d = attrOf(a) - BAL.attr.start;
+  if (!d) return ['BASE VALUE'];
+  return ({ body: ['+' + Math.floor(d / S_.body.hpEvery) + ' max HP'], reflex: ['+' + pc(S_.reflex.speed * d) + ' move speed', '-' + pc(S_.reflex.dash * d) + ' dash cooldown'],
+    tech: ['+' + n1(S_.tech.cap * d) + ' cyberware capacity', '+' + pc(S_.tech.summon * d) + ' turret / drone damage'],
+    net: ['+' + Math.floor(d / S_.net.ramEvery) + ' RAM', '-' + pc(S_.net.hack * d) + ' quickhack upload'], focus: ['+' + pc(S_.focus.crit * d) + ' crit chance', '+' + pc(S_.focus.sup * d) + ' super charge'] })[a]
+    .concat(WK.filter(k => WEAPONS[k].attr === a).map(k => '+' + pc(S_.weapon * d) + ' ' + WEAPONS[k].name + ' damage'));
+}
 const treeNodes = () => ptTab === 'inv' ? WK.map((id, i) => ({ id, at: [i % 3, i / 3 | 0] })) : perkTree(ptTab);
 const PT_N = 112, PT_GX = 236, PT_GY = 170; // node size, column + row pitch
 const lvTxt = (d, n) => d.replace(/\d+(\.\d+)?/, m => String(Math.round(+m * n * 100) / 100)); // '+12% damage' at level 3 = '+36% damage'
 const shipPath = id => 'M' + SHAPES[WEAPONS[id].shape].map(([x, y]) => (12 + x * .42).toFixed(1) + ' ' + (12 + y * .42).toFixed(1)).join('L') + 'Z';
-function pnode(id) { // one node of the current tab: what it is, its level, what the next level costs (perk point or creds), how to buy it
+function pnode(id) { // one node of the current tree: what it is, its level, what the next level costs (perk point or bytes), how to buy it
   if (ptTab === 'inv') { // a weapon: buy it (MK.1), then MK upgrades
     const W = WEAPONS[id], mk = wpOwns(id) ? Math.max(1, META.wp.own[id] || 1) : 0, nx = mk + 1;
     const cost = mk ? BAL.wpn.mkCost[nx] || 0 : W.cost, need = mk ? BAL.wpn.mkLv[nx] || 0 : W.lv;
@@ -208,100 +230,260 @@ function pnode(id) { // one node of the current tab: what it is, its level, what
     lock: attrOf(P.at) < P.req ? 'REQUIRES ' + ATTR[P.at].name + ' ' + P.req : '', buy: () => { META.pk[id] = lv + 1; if (A) META.ab[A.k] = id; } };
 }
 const ptDef = id => treeNodes().find(n => n.id === id);
-const canPay = n => n.pts ? perkPts() >= n.pts : creds >= n.cost;
+const canPay = n => n.pts ? perkPts() >= n.pts : bytes >= n.cost;
 const isEq = id => ptTab === 'inv' ? META.wp.eq === id : META.ab.skill === id || META.ab.sup === id;
 function ptState(id) { const n = pnode(id); return n.lv >= n.max ? 'max' : n.lv > 0 ? 'own' : n.lock ? 'lock' : 'open'; }
 const ptPos = d => [d.at[0] * PT_GX, d.at[1] * PT_GY];
 const btn = (cls, text, id, fn, off) => { const b = el('button', cls, text); b.type = 'button'; b.dataset.id = id; b.disabled = !!off; b.onclick = fn; return b; };
 function raiseAttr(a) {
   if (attrPts() < 1 || attrOf(a) >= BAL.attr.max) return cue('buyfail');
-  META.at[a] = attrOf(a) + 1; saveMeta(); cue(attrOf(a) >= BAL.attr.max ? 'perkmax' : 'perk'); renderShop(); renderClasses();
+  META.at[a] = attrOf(a) + 1; saveMeta(); cue(attrOf(a) >= BAL.attr.max ? 'perkmax' : 'perk'); ptFx = 'at.' + a; renderShop(); renderClasses();
 }
 function respec() { // refunds every attribute + perk point; abilities fall back to the free pair; cyberware the new build can't run comes out
   const c = respecCost();
   if (T > respecT) { respecT = T + 3; return renderShop(); } // first press arms it (3s)
-  respecT = 0; if (creds < c) { cue('buyfail'); return renderShop(); }
-  creds -= c; META.at = {}; META.pk = {}; META.ab = { skill: 'breakpoint', sup: 'halt' }; cwValidate(); saveMeta(); cue('unequip'); renderShop(); renderClasses();
+  respecT = 0; if (bytes < c) { cue('buyfail'); return renderShop(); }
+  bytes -= c; META.at = {}; META.pk = {}; META.ab = { skill: 'breakpoint', sup: 'halt' }; cwValidate(); saveMeta(); cue('unequip'); renderShop(); renderClasses();
 }
+document.getElementById('atnote').replaceChildren('PER LEVEL · +' + BAL.attr.perLv + ' ATTRIBUTE · +' + BAL.attr.perkPerLv + ' PERK', document.createElement('br'), 'EVERY ' + BAL.attr.perkBonus + 'TH LEVEL · +1 PERK');
 function renderShop() {
-  const inv = ptTab === 'inv', a = ptTab, focusId = document.activeElement && document.activeElement.dataset.id, L = lvInfo();
-  document.getElementById('shopwallet').textContent = '◆ ' + fmt(creds);
+  const focusId = document.activeElement && document.activeElement.dataset.id, L = lvInfo(), tree = ptView === 'tree', inv = tree && ptTab === 'inv';
+  shopEl.dataset.view = inv ? 'inv' : tree ? 'tree' : 'attr';
+  document.getElementById('shopwallet').textContent = '¤ ' + fmt(bytes);
   document.getElementById('shopnick').textContent = nick;
   document.getElementById('shoplv').textContent = 'LEVEL ' + L.lv + (L.need ? ' · ' + fmt(L.into) + ' / ' + fmt(L.need) + ' XP' : ' · MAX') + ' · CHARACTER';
   const tabs = document.getElementById('shoptabs'); tabs.textContent = '';
-  for (const k in TREES) {
-    const b = el('button', 'tab' + (k === ptTab ? ' on' : ''), TREES[k].name + (k !== 'inv' ? ' ' + attrOf(k) : '')); b.type = 'button'; b.dataset.id = 'tab.' + k; b.setAttribute('aria-pressed', String(k === ptTab));
-    b.onclick = () => { if (ptTab !== k) { ptTab = k; ptSel = null; cue('tab'); renderShop(); } }; tabs.appendChild(b);
+  for (const [k, n] of [['attr', 'ATTRIBUTES'], ['inv', 'INVENTORY']]) {
+    const on = k === (inv ? 'inv' : 'attr'), b = el('button', 'tab' + (on ? ' on' : ''), n); b.type = 'button'; b.dataset.id = 'tab.' + k; b.setAttribute('aria-pressed', String(on));
+    b.onclick = () => { if (!on || (k === 'attr' && tree)) shopGo(k === 'inv' ? 'tree' : 'attr', k === 'inv' ? 'inv' : null); }; tabs.appendChild(b);
   }
-  // left column: the attribute (level, what a point does, raise), points to spend, respec
-  document.getElementById('ptname').textContent = TREES[a].name;
-  document.getElementById('ptkind').textContent = inv ? 'Loadout' : 'Attribute';
-  document.getElementById('ptrole').textContent = inv ? 'Any build can equip any weapon. Its attribute adds damage per point; MK upgrades add more.' : ATTR[a].desc;
-  document.getElementById('ptpts').textContent = inv ? fmt(creds) : perkPts();
-  document.getElementById('ptptsl').innerHTML = inv ? 'Creds<br>available' : 'Perk points<br>available';
-  document.getElementById('ptapts').textContent = attrPts();
+  if (tree) renderTree(); else renderAttr();
+  const P = document.getElementById('shopprompts'); P.textContent = '';
+  const pr = (keys, t) => { const s = el('span'); for (const k of keys) s.appendChild(el('kbd', '', k)); s.appendChild(document.createTextNode(' ' + t)); P.appendChild(s); };
+  if (!tree) { pr(['HOLD'], 'Raise'); pr(['Q', 'E'], 'Switch tab'); }
+  else if (inv) { pr(['HOLD'], 'Buy / upgrade'); pr(['Q', 'E'], 'Switch tab'); }
+  else { pr(['HOLD'], 'Purchase'); pr(['Q', 'E'], 'Switch attribute'); }
+  const back = el('button', 'btn btn--secondary cp'); back.type = 'button'; back.dataset.id = 'shopdone';
+  back.append(el('kbd', '', 'ESC'), document.createTextNode(tree && !inv ? ' BACK' : ' CLOSE')); back.onclick = shopBack; P.appendChild(back);
+  ptFx = null;
+  const f = focusId && shopEl.querySelector('[data-id="' + focusId + '"]');
+  if (f && !f.disabled) { lastHover = f; f.focus({ preventScroll: true }); }
+}
+function renderAttr() { // the overview: points to spend, five attribute plates around the LEVEL core, the selected one's card
+  const L = lvInfo(), ap = attrPts(), W = WEAPONS[META.wp.eq], mk = META.wp.own[META.wp.eq] || 1;
+  document.getElementById('atapts').textContent = ap;
+  document.getElementById('atppts').textContent = perkPts();
+  const spent = attrSpent() + perkSpent(), armed = T < respecT;
+  document.getElementById('ptrespec').replaceChildren(btn('ptc' + (armed ? ' armed' : ''), armed ? 'CONFIRM · ¤ ' + fmt(respecCost()) : 'RESPEC · ¤ ' + fmt(respecCost()), 'respec', respec, !spent));
+  const hex = document.getElementById('athex'); hex.textContent = '';
+  const svg = svgEl('svg', { viewBox: '-360 -340 720 680', 'aria-hidden': 'true' }); // circuit traces, plate to core
+  for (const k in AT_POS) {
+    const [x, y] = AT_POS[k], d = Math.hypot(x, y), nx = -y / d, ny = x / d;
+    for (const o of [-7, 0, 7]) svg.appendChild(svgEl('line', { x1: x + nx * o, y1: y + ny * o, x2: nx * o, y2: ny * o, 'data-k': k, class: k === atSel ? 'on' : '' }));
+    if (ptFx === 'at.' + k) svg.appendChild(svgEl('line', { x1: x, y1: y, x2: 0, y2: 0, class: 'pulse' })); // the raise runs down the trace into the core
+  }
+  const core = el('div', 'atcore' + (ptFx && ptFx.startsWith('at.') ? ' fx' : '')), cs = svgEl('svg', { viewBox: '0 0 200 200', 'aria-hidden': 'true' });
+  cs.append(svgEl('path', { d: 'M100 .5L199.5 100L100 199.5L.5 100Z' }), svgEl('path', { class: 'in', d: 'M100 12L188 100L100 188L12 100Z' }));
+  core.append(cs, el('b', '', String(L.lv)), el('span', '', 'LEVEL'), el('small', '', L.need ? fmt(L.into) + ' / ' + fmt(L.need) + ' XP' : 'MAX LEVEL'));
+  hex.append(svg, core);
+  Object.keys(AT_POS).forEach((k, i) => {
+    const [x, y] = AT_POS[k], inv = k === 'inv', v = inv ? 0 : attrOf(k), max = !inv && v >= BAL.attr.max, up = !inv && !max && ap > 0;
+    const p = el('div', 'atp' + (k === atSel ? ' sel' : '') + (max ? ' max' : '') + (up ? ' up' : '') + (inv ? ' inv' : '') + (ptFx === 'at.' + k ? ' fx' : ''));
+    p.dataset.k = k; p.style.left = 360 + x - 125 + 'px'; p.style.top = 340 + y - 75 + 'px';
+    const shape = svgEl('svg', { class: 'atshape', viewBox: '0 0 250 150', 'aria-hidden': 'true' }); shape.append(svgEl('path', { d: AT_HEX }), svgEl('path', { class: 'in', d: AT_HEX_IN }));
+    const b = el('button', 'atbtn'); b.type = 'button'; b.dataset.id = 'at.' + k;
+    b.setAttribute('aria-label', inv ? 'Inventory: ' + W.name + ' MK.' + mk : ATTR[k].name + ' ' + v + ' of ' + BAL.attr.max + (up ? '. Hold to raise' : ''));
+    const ic = svgEl('svg', { viewBox: '0 0 24 24', class: 'atic', 'aria-hidden': 'true' }); ic.appendChild(svgEl('path', { d: inv ? shipPath(META.wp.eq) : AT_ICON[k] }));
+    const fx = ptFx === 'at.' + k, num = el('span', 'num'); num.appendChild(el('b', '', inv ? 'MK.' + mk : String(v)));
+    if (fx) num.appendChild(el('b', 'was', String(v - 1))); // odometer: the old value rolls out above the new one
+    const val = el('span', 'atval'); val.append(ic, num); if (inv) val.appendChild(el('small', '', W.name));
+    b.append(el('span', 'atname', inv ? 'INVENTORY' : ATTR[k].name), val);
+    const ser = el('span', 'ser', (inv ? 'WPN_' : 'ATR_') + (611 + i * 17) + ' · ' + (inv ? WK.filter(wpOwns).length + '/' + WK.length + ' OWNED' : v + '/' + BAL.attr.max)); ser.setAttribute('aria-hidden', 'true');
+    b.onfocus = b.onmouseenter = () => atPick(k);
+    // hold the plate to raise it; a quick click (or Enter) opens its perk tree
+    b.onclick = e => { if (inv || !e.detail || performance.now() - atDown < AT_TAP) shopGo('tree', k); };
+    b.onpointerdown = e => { if (e.button === 0 && !inv) atHoldStart(k, p); };
+    b.onpointerleave = holdEnd;
+    b.onkeydown = e => {
+      if (e.code === 'Space' && !e.repeat && !inv) { e.preventDefault(); atHoldStart(k, p, true); }
+      const d = AT_DIR[e.code]; if (d) { e.preventDefault(); atMove(d[0], d[1]); }
+    };
+    b.onkeyup = e => { if (e.code === 'Space') { e.preventDefault(); holdEnd(); } };
+    if (!inv) shape.appendChild(svgEl('path', { class: 'ring', d: AT_HEX, pathLength: 100 })); // the hold trace runs round the outline
+    p.append(shape, ser, b);
+    if (fx) { const g = el('span', 'atgain', '+1'); g.setAttribute('aria-hidden', 'true'); p.appendChild(g); } // over the plate, not under it
+    if (max) p.appendChild(el('span', 'atmax', 'MAX'));
+    hex.appendChild(p);
+  });
+  renderAtCard(); atFit(); // fit after the card is in: it shares the row
+}
+function atFit() { // the honeycomb is drawn at 720 x 680 and scaled down to fit smaller screens
+  const m = document.getElementById('atmid'), h = document.getElementById('athex');
+  if (m.clientHeight) h.style.transform = 'scale(' + Math.min(1, m.clientHeight / 700, m.clientWidth / 740) + ')';
+}
+addEventListener('resize', () => { if (!shopEl.hidden) (ptView === 'attr' ? atFit : ptFit)(); });
+function atPick(k) {
+  if (atSel === k) return;
+  atSel = k; // no hover sound (it read as an error beep)
+  shopEl.querySelectorAll('.atp').forEach(p => p.classList.toggle('sel', p.dataset.k === k));
+  shopEl.querySelectorAll('#athex line').forEach(l => l.classList.toggle('on', l.dataset.k === k));
+  renderAtCard();
+}
+function atMove(dx, dy) { // arrow keys hop to the nearest plate in that direction
+  const [x0, y0] = AT_POS[atSel]; let best = null, bd = 1e9;
+  for (const k in AT_POS) {
+    const vx = AT_POS[k][0] - x0, vy = AT_POS[k][1] - y0, d = Math.hypot(vx, vy), f = (vx * dx + vy * dy) / (d || 1);
+    if (k !== atSel && f >= .3 && d * (2 - f) < bd) { bd = d * (2 - f); best = k; }
+  }
+  const b = best && shopEl.querySelector('[data-id="at.' + best + '"]'); if (b) { lastHover = b; b.focus(); }
+}
+// hold timing: the fill waits AT_TAP (a click released by then opens perks instead), then charges for AT_FILL. Matches .atp.holding in style.css
+const AT_TAP = 150, AT_FILL = 450; let atDown = 0, holdSnd = null;
+function atHoldStart(a, p, key) {
+  atPick(a); holdEnd(); atDown = performance.now();
+  if (attrPts() < 1 || attrOf(a) >= BAL.attr.max) { if (key) { cue('buyfail'); p.classList.add('deny'); setTimeout(() => p.classList.remove('deny'), 160); } return; } // a mouse press may just be a click
+  const wait = key ? 0 : AT_TAP; p.classList.add('holding'); p.classList.toggle('now', !!key); holdSnd = holdTone(AT_FILL / 1000, wait / 1000);
+  ptHold = setTimeout(() => { ptHold = holdSnd = null; p.classList.remove('holding'); raiseAttr(a); }, wait + AT_FILL);
+}
+function renderAtCard() { // right column: the selected attribute (or the inventory plate)
+  const c = document.getElementById('atcard'); c.textContent = '';
+  const hd = el('header'), fx = el('ul', 'fx'), meta = el('dl', 'meta'), ft = el('footer'), add = (k, v) => meta.append(el('dt', '', k), el('dd', '', v));
+  if (atSel === 'inv') {
+    const W = WEAPONS[META.wp.eq], mk = META.wp.own[META.wp.eq] || 1, nx = WK.filter(k => !wpOwns(k)).sort((x, y) => WEAPONS[x].lv - WEAPONS[y].lv)[0];
+    hd.append(el('h3', '', 'INVENTORY'), el('span', 'lvtag', WK.filter(wpOwns).length + ' / ' + WK.length + ' OWNED'));
+    fx.append(el('li', '', W.name + ' MK.' + mk + ' equipped'), el('li', '', 'Damage x' + (1 + S_.weapon * (attrOf(W.attr) - BAL.attr.start) + BAL.wpn.mkDmg * (mk - 1)).toFixed(2) + ' from ' + ATTR[W.attr].name + ' + MK'));
+    add('SCALES WITH', ATTR[W.attr].name); add('NEXT WEAPON', nx ? WEAPONS[nx].name + ' · LEVEL ' + WEAPONS[nx].lv : 'ALL OWNED');
+    c.append(hd, el('p', 'type', 'WEAPONS'), fx, meta);
+    ft.append(el('span'), btn('btn btn--primary cp', 'OPEN INVENTORY', 'open.inv', () => shopGo('tree', 'inv'))); c.appendChild(ft); return;
+  }
+  const a = atSel, v = attrOf(a), ids = perkTree(a).map(n => n.id), own = ids.filter(id => PERK[id].free || META.pk[id]).length;
+  const nx = ids.filter(id => PERK[id].req > v).sort((x, y) => PERK[x].req - PERK[y].req)[0], ap = attrPts(), max = v >= BAL.attr.max;
+  hd.append(el('h3', '', ATTR[a].name), el('span', 'lvtag', 'LVL ' + v + ' / ' + BAL.attr.max));
+  for (const s of atNow(a)) fx.appendChild(el('li', '', s));
+  add('EVERY POINT', ATTR_FX[a]); add('PERKS', own + ' / ' + ids.length); add('NEXT TIER', nx ? TIER_NAME[PERK[nx].tier] + ' · ' + ATTR[a].name + ' ' + PERK[nx].req : 'ALL OPEN');
+  c.append(hd, el('p', 'type', 'ATTRIBUTE'), el('p', 'lore', ATTR[a].desc), el('p', 'label', 'Current bonus'), fx, meta);
+  const h = el('span', 'hold' + (max || ap < 1 ? ' no' : ''));
+  if (max) h.textContent = 'MAXED'; else if (ap < 1) h.textContent = 'NO ATTRIBUTE POINTS'; else h.append(el('kbd', '', 'HOLD'), document.createTextNode(' RAISE · 1 PT'));
+  ft.append(h, btn('btn btn--primary cp', 'OPEN PERKS', 'open.' + a, () => shopGo('tree', a))); c.appendChild(ft);
+}
+function renderTree() { // one attribute's perk tree, or the INVENTORY (weapons)
+  const inv = ptTab === 'inv', a = ptTab;
+  document.getElementById('ptkind').textContent = inv ? 'Loadout' : 'Level';
+  document.getElementById('ptname').textContent = inv ? 'INVENTORY' : attrOf(a) + ' ' + ATTR[a].name;
+  document.getElementById('ptrole').textContent = inv ? 'Weapons' : 'Attribute';
+  document.getElementById('ptpts').textContent = inv ? fmt(bytes) : perkPts();
+  document.getElementById('ptptsl').innerHTML = inv ? 'Bytes<br>available' : 'Perk points<br>available';
+  document.querySelector('#ptview .ptpts').classList.toggle('cr', inv);
   const box0 = document.getElementById('ptclasses'); box0.textContent = '';
   if (inv) {
     const W = WEAPONS[META.wp.eq], mk = META.wp.own[META.wp.eq] || 1;
     box0.appendChild(el('p', 'ptfx', 'EQUIPPED · ' + W.name + ' MK.' + mk + ' · damage x' + (1 + S_.weapon * (attrOf(W.attr) - BAL.attr.start) + BAL.wpn.mkDmg * (mk - 1)).toFixed(2)));
-  } else {
-    const lvl = el('p', 'ptatt'); lvl.append(el('b', '', String(attrOf(a))), el('span', '', '/ ' + BAL.attr.max)); box0.appendChild(lvl);
-    box0.appendChild(el('p', 'ptfx', ATTR_FX[a] + ' · weapons: ' + WK.filter(k => WEAPONS[k].attr === a).map(k => WEAPONS[k].name).join(', ')));
-    const full = attrOf(a) >= BAL.attr.max;
-    box0.appendChild(btn('ptc', full ? 'MAXED' : 'RAISE ' + ATTR[a].name + ' +1', 'raise', () => raiseAttr(a), full || attrPts() < 1));
+  } else box0.appendChild(el('p', 'ptfx', ATTR[a].desc));
+  const sub = document.getElementById('ptsub'); sub.textContent = ''; sub.hidden = inv;
+  if (!inv) { // header: attribute points | [Q] icon NAME level [E] over one segment per attribute | perk points
+    const pts = (cls, v, label) => { const d = el('div', 'ptpts ' + cls), c = el('span', 'ptchip'), l = el('span'); c.setAttribute('aria-hidden', 'true'); l.innerHTML = label; d.append(c, el('b', '', String(v)), l); return d; };
+    const kq = (k, d) => { const b = btn('kq', k, 'cyc.' + k, () => ptCycle(d)); b.setAttribute('aria-label', d < 0 ? 'Previous attribute' : 'Next attribute'); return b; };
+    const ic = svgEl('svg', { viewBox: '0 0 24 24', class: 'atic', 'aria-hidden': 'true' }); ic.appendChild(svgEl('path', { d: AT_ICON[a] }));
+    const cur = el('div', 'ptcur'), seg = el('div', 'ptseg'), mid = el('nav', 'ptswitch');
+    cur.append(kq('Q', -1), ic, el('b', '', ATTR[a].name), el('span', 'lv', String(attrOf(a))), kq('E', 1));
+    for (const k of AK) {
+      const s = btn('seg' + (k === a ? ' on' : ''), '', 'sub.' + k, () => { if (ptTab !== k) { ptTab = k; ptSel = null; cue('tab'); renderShop(); } });
+      s.setAttribute('aria-label', ATTR[k].name + ' ' + attrOf(k)); s.setAttribute('aria-pressed', String(k === a)); s.title = ATTR[k].name; seg.appendChild(s);
+    }
+    mid.setAttribute('aria-label', 'Attribute trees'); mid.append(cur, seg);
+    sub.append(pts('att', attrPts(), 'Attribute<br>points'), mid, pts('', perkPts(), 'Perk<br>points'));
   }
-  const spent = attrSpent() + perkSpent(), armed = T < respecT;
-  document.getElementById('ptrespec').replaceChildren(btn('ptc' + (armed ? ' armed' : ''), armed ? 'CONFIRM · ◆ ' + fmt(respecCost()) : 'RESPEC · ◆ ' + fmt(respecCost()), 'respec', respec, !spent));
   const all = treeNodes().map(d => pnode(d.id)), got = all.reduce((s, n) => s + n.lv, 0), tot = all.reduce((s, n) => s + n.max, 0);
   document.getElementById('ptprog').textContent = got + ' / ' + tot;
   const bar = document.getElementById('ptbar'); bar.textContent = '';
   for (let i = 0; i < tot; i++) bar.appendChild(el('i', i < got ? 'on' : ''));
-  // the tree: traces first (svg), nodes on top
-  const N = treeNodes(), cols = Math.max(...N.map(d => d.at[0])) + 1, rows = Math.max(...N.map(d => d.at[1])) + 1;
-  const cw = (cols - 1) * PT_GX + PT_N, ch = (rows - 1) * PT_GY + PT_N, cv = document.getElementById('ptcanvas');
-  cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
-  const svg = document.getElementById('pttraces'); svg.textContent = '';
-  svg.setAttribute('viewBox', `-60 -60 ${cw + 120} ${ch + 120}`); svg.style.width = cw + 120 + 'px'; svg.style.height = ch + 120 + 'px';
-  const path = (d, cls) => { svg.appendChild(svgEl('path', { d, class: cls })); svg.appendChild(svgEl('path', { d, class: cls + ' dbl', transform: 'translate(4 4)' })); };
-  for (const d of N) {
-    const [x, y] = ptPos(d), st = ptState(d.id);
-    path(`M${x + 70} ${y}V${y - 26}H${x + 118}`, 'stub'); svg.appendChild(svgEl('rect', { x: x + 118, y: y - 29, width: 6, height: 6, class: 'pad' }));
-    path(`M${x + 26} ${y + PT_N}V${y + PT_N + 24}H${x - 22}`, 'stub'); svg.appendChild(svgEl('rect', { x: x - 28, y: y + PT_N + 21, width: 6, height: 6, class: 'pad' }));
-    if (!d.pre) continue;
-    const [px, py] = ptPos(ptDef(d.pre)), x1 = px + PT_N, y1 = py + PT_N / 2, x2 = x, y2 = y + PT_N / 2, xm = (x1 + x2) / 2, sg = Math.sign(y2 - y1);
-    path(sg ? `M${x1} ${y1}H${xm - 12}l12 ${12 * sg}V${y2 - 12 * sg}l12 ${12 * sg}H${x2}` : `M${x1} ${y1}H${x2}`, 'trace ' + st);
+  const svg = document.getElementById('pttraces'), box = document.getElementById('ptnodes'); svg.textContent = ''; box.textContent = '';
+  if (inv) renderInv(svg, box); else renderPerks(a, svg, box);
+  renderPtTip(); ptFit();
+}
+const ptNode = (d, cls) => { // one node button: hover / focus selects, press and hold buys
+  const n = pnode(d.id), st = ptState(d.id), b = el('button', cls + ' ' + st + (d.id === ptSel ? ' sel' : '') + (d.id === ptFx ? ' fx' : ''));
+  b.type = 'button'; b.dataset.id = 'pn.' + d.id; b.setAttribute('aria-label', n.name + ', level ' + n.lv + ' of ' + n.max + (st === 'lock' ? ', locked' : ''));
+  b.onfocus = b.onmouseenter = () => ptPick(d.id);
+  b.onpointerdown = e => { if (e.button === 0) holdStart(d.id, b); };
+  b.onpointerleave = holdEnd;
+  b.onkeydown = e => { if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) { e.preventDefault(); holdStart(d.id, b); } };
+  b.onkeyup = e => { if (e.code === 'Enter' || e.code === 'Space') holdEnd(); };
+  return [b, n, st];
+};
+const ptIcon = (d, n, cls = 'pic') => { const ic = svgEl('svg', { viewBox: '0 0 24 24', class: cls, 'aria-hidden': 'true' });
+  ic.appendChild(svgEl('path', { d: ptTab === 'inv' ? shipPath(d.id) : PT_ICON[d.id] || PT_ICON[PT_ALIAS[d.id]] || (n.ab ? PT_ICON[n.ab] : ptStatIc(d.id)) })); return ic; };
+function pnOct(d, big, x, y, cnt) { // a tree node centred on (x, y): big octagon or small chamfered square, icon, counter tab, EQUIPPED tag
+  const s = big ? PT_BIG : PT_SM, [b, n] = ptNode(d, 'pn ' + (big ? 'big' : 'sm')), pts = big ? octPts : chamPts, c = big ? 28 : 12;
+  const sh = svgEl('svg', { class: 'pshape', viewBox: `0 0 ${s} ${s}`, 'aria-hidden': 'true' });
+  sh.append(svgEl('polygon', { class: 'o', points: pts(s, c) }), svgEl('polygon', { class: 'i', points: pts(s, c, 5) }));
+  b.style.left = x - s / 2 + 'px'; b.style.top = y - s / 2 + 'px'; b.append(sh, ptIcon(d, n), el('span', 'cnt', cnt(n)));
+  if (n.lv && isEq(d.id)) b.appendChild(el('span', 'eqd', 'EQUIPPED'));
+  return b;
+}
+function renderInv(svg, box) { // INVENTORY: the weapons on a 3 x 2 grid, the same nodes as the perk trees
+  const N = treeNodes(), cw = Math.max(...N.map(d => d.at[0])) * PT_GX + PT_BIG, ch = Math.max(...N.map(d => d.at[1])) * PT_GY + PT_BIG + 12, cv = document.getElementById('ptcanvas');
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px'; Object.assign(svg.style, { width: 0, height: 0 });
+  for (const d of N) { const [x, y] = ptPos(d); box.appendChild(pnOct(d, true, x + PT_BIG / 2, y + PT_BIG / 2, n => n.lv ? 'MK.' + n.lv : '—')); }
+}
+// perk tree geometry (px): node sizes, pillar pitch, small-node offset from the trunk, tier pitch, first pillar x, top margin
+const PT_BIG = 100, PT_SM = 60, PT_COL = 360, PT_SIDE = 116, PT_ROW = 172, PT_X0 = 330, PT_Y0 = 36, PT_W = 1380, PT_H = 740;
+const ptStatIc = id => { const m = Object.keys(PERK[id]?.mod || {})[0]; return PT_ICON[m] || PT_ICON[PT_ALIAS[m]] || PT_ICON.lic; };
+const TIER_NAME = ['BOOT', 'COMPILE', 'DEPLOY', 'ROOT ACCESS'];
+const LOCK_D = 'M8 10V7l2-3h4l2 3v3M5 10h14v11H5zM12 14v3'; // padlock, 24 grid
+const octPts = (s, c, i = .5) => { const a = i, b = s - i, k = c - i * .41; return [[a + k, a], [b - k, a], [b, a + k], [b, b - k], [b - k, b], [a + k, b], [a, b - k], [a, a + k]].join(' '); };
+const chamPts = (s, c, i = .5) => { const a = i, b = s - i, k = c - i * .41; return [[a, a], [b, a], [b, b - k], [b - k, b], [a, b]].join(' '); };
+const lockIc = () => { const s = svgEl('svg', { viewBox: '0 0 24 24', class: 'lk', 'aria-hidden': 'true' }); s.appendChild(svgEl('path', { d: LOCK_D })); return s; };
+function renderPerks(a, svg, box) { // three pillars: big nodes on each trunk, small nodes branching off; tiers bottom to top, a red lock line above the open ones
+  const v = attrOf(a), open = t => v >= tierStart(t), cy = t => PT_Y0 + PT_BIG / 2 + (3 - t) * PT_ROW, px = c => PT_X0 + c * PT_COL, busY = cy(0) + PT_BIG / 2 + 40;
+  const N = perkTree(a).map(d => ({ ...d, x: px(d.col) + d.side * PT_SIDE, y: cy(d.tier) - (d.side ? 16 : 0) + d.slot * 44 })), lit = d => ptState(d.id) === 'own' || ptState(d.id) === 'max';
+  const cv = document.getElementById('ptcanvas'); cv.style.width = PT_W + 'px'; cv.style.height = PT_H + 'px';
+  svg.setAttribute('viewBox', `0 0 ${PT_W} ${PT_H}`); Object.assign(svg.style, { left: 0, top: 0, width: PT_W + 'px', height: PT_H + 'px' });
+  const dbl = (d, cls, dx, dy) => svg.append(svgEl('path', { d, class: cls, transform: `translate(${-dx} ${-dy})` }), svgEl('path', { d, class: cls, transform: `translate(${dx} ${dy})` }));
+  const tcls = (t, on) => 'trace ' + (!open(t) ? 'lock' : on ? 'on' : 'open');
+  // root bus under the pillars, with a pin header in the middle
+  dbl(`M${px(0)} ${busY}H${px(2)}`, 'trace on', 0, 2.5);
+  for (let i = -2; i <= 2; i++) svg.appendChild(svgEl('rect', { x: px(1) + i * 9 - 2, y: busY + 8, width: 4, height: 10, class: 'pin' }));
+  for (let c = 0; c < 3; c++) { // trunk: bus up through each tier the pillar reaches; a segment lights when something on or above it is owned
+    const P = N.filter(d => d.col === c), top = Math.max(...P.map(d => d.tier)); let y = busY;
+    for (let t = 0; t <= top; t++) {
+      const B = P.find(d => d.tier === t && !d.side), on = P.some(d => d.tier >= t && lit(d));
+      dbl(`M${px(c)} ${y}V${B ? cy(t) + PT_BIG / 2 : cy(t)}`, tcls(t, on), 2.5, 0); y = B ? cy(t) - PT_BIG / 2 : cy(t);
+      for (const S of P.filter(d => d.tier === t && d.side)) { // branch: out of the big node's side (or the bare trunk), a 45° jog up, into the small node
+        const x0 = px(c) + S.side * (B ? PT_BIG / 2 : 0), xm = x0 + S.side * 10, x1 = S.x - S.side * PT_SM / 2;
+        dbl(`M${x0} ${cy(t)}H${xm}l${S.side * 16} -16H${x1}`, tcls(t, lit(S)), 0, 2.5);
+      }
+    }
   }
-  const box = document.getElementById('ptnodes'); box.textContent = '';
-  N.forEach(d => {
-    const n = pnode(d.id), st = ptState(d.id), [x, y] = ptPos(d);
-    const b = el('button', 'pnode ' + st + (d.id === ptSel ? ' sel' : '') + (d.id === ptFx ? ' fx' : ''));
-    b.type = 'button'; b.dataset.id = 'pn.' + d.id; b.style.left = x + 'px'; b.style.top = y + 'px';
-    b.setAttribute('aria-label', n.name + ', level ' + n.lv + ' of ' + n.max + (st === 'lock' ? ', locked' : ''));
-    const ic = svgEl('svg', { viewBox: '0 0 24 24', class: 'pic', 'aria-hidden': 'true' });
-    ic.appendChild(svgEl('path', { d: inv ? shipPath(d.id) : PT_ICON[d.id] || PT_ICON[PT_ALIAS[d.id]] || (n.ab ? PT_ICON[n.ab] : PT_ICON.lic) }));
-    b.append(ic, el('span', 'cnt', inv ? (n.lv ? 'MK.' + n.lv : '·') : n.lv + '/' + n.max), el('span', 'ser', (inv ? 'LV ' : 'REQ ') + n.need + ' · ' + d.id.toUpperCase()));
-    if (n.lv && isEq(d.id)) b.appendChild(el('span', 'eqd', 'EQUIPPED'));
-    b.onfocus = b.onmouseenter = () => ptPick(d.id);
-    b.onpointerdown = e => { if (e.button === 0) holdStart(d.id, b); };
-    b.onpointerleave = holdEnd;
-    b.onkeydown = e => { if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) { e.preventDefault(); holdStart(d.id, b); } };
-    b.onkeyup = e => { if (e.code === 'Enter' || e.code === 'Space') holdEnd(); };
-    box.appendChild(b);
-  });
-  ptFx = null;
-  renderPtTip();
-  const f = focusId && shopEl.querySelector('[data-id="' + focusId + '"]');
-  if (f && !f.disabled) { lastHover = f; f.focus({ preventScroll: true }); }
+  const lbl = []; for (let t = 0; t < 4; t++) { // tier labels: requirement on the left, tier name (+ lock) on the right
+    const L = el('span', 'ptreq' + (open(t) ? '' : ' lock')), R = el('span', 'ptrank' + (open(t) ? '' : ' lock'));
+    L.append(el('small', '', 'REQUIRES'), document.createTextNode(ATTR[a].name + ' ' + tierStart(t))); R.appendChild(el('b', '', TIER_NAME[t]));
+    if (!open(t)) { const i = el('i'); i.append(lockIc(), document.createTextNode('LOCKED')); R.appendChild(i); }
+    L.style.top = R.style.top = cy(t) + 'px'; L.setAttribute('aria-hidden', 'true'); R.setAttribute('aria-hidden', 'true'); lbl.push(L, R);
+  }
+  const u = [0, 1, 2, 3].filter(open).length; let lock = []; // tiers open, from the bottom
+  if (u < 4) { // the lock line, between the last open tier and the first locked one
+    const y = u ? (cy(u) + PT_BIG / 2 + 13 + cy(u - 1) - PT_BIG / 2) / 2 : busY + 26, k = el('span', 'ptlock'); // midway between the counter tabs above and the nodes below
+    svg.append(svgEl('line', { x1: 0, y1: y, x2: PT_W, y2: y, class: 'lockline' }), svgEl('line', { x1: 0, y1: y + 5, x2: PT_W, y2: y + 5, class: 'lockline dim' }));
+    k.style.left = px(1) + 'px'; k.style.top = y + 'px'; k.appendChild(lockIc()); k.setAttribute('aria-hidden', 'true');
+    const dim = el('span', 'ptdim'); dim.style.height = y + 'px'; dim.setAttribute('aria-hidden', 'true'); lock = [dim, k];
+  }
+  for (const d of N) box.appendChild(pnOct(d, !d.side, d.x, d.y, n => n.lv + '/' + n.max));
+  box.append(...lock, ...lbl); // dim over the locked nodes (hover still reaches them: pointer-events none), tier labels stay readable on top
+}
+function ptFit() { // the canvas is drawn at full size, centred in its stage and scaled down to fit it
+  const cv = document.getElementById('ptcanvas'), st = document.getElementById('ptstage');
+  const k = Math.min(1, st.clientWidth / parseFloat(cv.style.width), st.clientHeight / parseFloat(cv.style.height));
+  cv.style.transform = st.clientWidth ? 'scale(' + k + ')' : '';
 }
 function ptPick(id) {
   if (ptSel === id) return;
-  ptSel = id; shopEl.querySelectorAll('.pnode').forEach(b => b.classList.toggle('sel', b.dataset.id === 'pn.' + id)); renderPtTip();
+  ptSel = id; shopEl.querySelectorAll('.pn').forEach(b => b.classList.toggle('sel', b.dataset.id === 'pn.' + id)); renderPtTip();
 }
-function renderPtTip() { // tooltip card beside the selected node: current level, next level, cost, hold prompt, equip
+function renderPtTip() { // card in the column right of the tree: current level, next level, cost, hold prompt, equip
   const tip = document.getElementById('pttip'); tip.textContent = '';
   const d = ptSel && ptDef(ptSel); tip.hidden = !d; if (!d) return;
-  const n = pnode(ptSel), st = ptState(ptSel), [, y] = ptPos(d), cw = parseFloat(document.getElementById('ptcanvas').style.width), id = ptSel;
-  tip.style.left = cw + 40 + 'px'; tip.style.top = Math.max(-40, y - 20) + 'px'; // own column right of the tree, level with the node: never covers another node
+  const n = pnode(ptSel), id = ptSel;
   const hd = el('header'); hd.appendChild(el('h3', '', n.name)); if (n.lv) hd.appendChild(el('span', 'bought', n.lv >= n.max ? 'MAXED' : 'OWNED'));
   tip.append(hd, el('p', 'type', n.type));
   const lvl = (k, v) => { const l = el('p', 'lvl' + (k === 'NEXT' ? ' next' : '')); l.append(el('span', '', k + (n.wp ? ' MK ' : ' LEVEL ')), el('b', '', String(v))); return l; };
@@ -310,9 +492,9 @@ function renderPtTip() { // tooltip card beside the selected node: current level
   if (n.lock) tip.appendChild(el('p', 'req', n.lock));
   const ft = el('footer');
   if (n.lv < n.max) {
-    ft.appendChild(el('span', 'price', n.pts ? n.pts + ' PERK PT' : '◆ ' + fmt(n.cost)));
+    ft.appendChild(el('span', 'price', n.pts ? n.pts + ' PERK PT' : '¤ ' + fmt(n.cost)));
     const p = el('span', 'hold' + (n.lock || !canPay(n) ? ' no' : ''));
-    if (n.lock) p.textContent = 'LOCKED'; else if (!canPay(n)) p.textContent = n.pts ? 'NO PERK POINTS' : 'NOT ENOUGH ◆'; else p.append(el('kbd', '', 'HOLD'), document.createTextNode(n.lv ? ' TO UPGRADE' : ' TO ACQUIRE'));
+    if (n.lock) p.textContent = 'LOCKED'; else if (!canPay(n)) p.textContent = n.pts ? 'NO PERK POINTS' : 'NOT ENOUGH ¤'; else p.append(el('kbd', '', 'HOLD'), document.createTextNode(n.lv ? ' TO UPGRADE' : ' TO ACQUIRE'));
     ft.appendChild(p);
   } else ft.appendChild(el('span', 'price', 'MAXED'));
   if (n.lv && (n.wp || n.ab)) { // weapons + abilities: equip (one weapon, one skill, one super)
@@ -329,30 +511,40 @@ function holdStart(id, b) {
   const n = pnode(id);
   if (n.lv >= n.max) return;
   if (n.lock || !canPay(n)) { cue('buyfail'); b.classList.add('deny'); setTimeout(() => b.classList.remove('deny'), 160); return; }
-  b.classList.add('holding');
+  b.classList.add('holding'); holdSnd = holdTone(.45);
   ptHold = setTimeout(() => {
-    ptHold = null; b.classList.remove('holding');
+    ptHold = holdSnd = null; b.classList.remove('holding');
     const m = pnode(id); if (m.lock || !canPay(m) || m.lv >= m.max) return;
-    if (!m.pts) creds -= m.cost;
+    if (!m.pts) bytes -= m.cost;
     m.buy(); saveMeta(); cue(m.lv + 1 >= m.max ? 'perkmax' : 'perk'); ptFx = id; renderShop(); renderClasses();
   }, 450);
 }
-function holdEnd() { if (ptHold) { clearTimeout(ptHold); ptHold = null; } shopEl.querySelectorAll('.pnode.holding').forEach(b => b.classList.remove('holding')); }
+function holdEnd() { if (ptHold) { clearTimeout(ptHold); ptHold = null; } if (holdSnd) { holdSnd(); holdSnd = null; } shopEl.querySelectorAll('.holding').forEach(b => b.classList.remove('holding')); }
 addEventListener('pointerup', holdEnd); addEventListener('pointercancel', holdEnd);
-function ptCycle(d) { const K = Object.keys(TREES); ptTab = K[(K.indexOf(ptTab) + d + K.length) % K.length]; ptSel = null; cue('tab'); renderShop(); }
-function openShop(tab) {
-  if (TREES[tab]) ptTab = tab;
-  ptSel = null; renderShop(); shopEl.hidden = false; cue('open');
-  const f = shopEl.querySelector('.pnode.open, .pnode.own') || shopEl.querySelector('.pnode'); lastHover = f; f.focus({ preventScroll: true });
+function shopGo(view, tab, quiet) { // switch view: 'attr' (the overview) or 'tree' (tab = an attribute or 'inv')
+  holdEnd();
+  if (view === 'attr' && ptView === 'tree' && ptTab !== 'inv') atSel = ptTab; // back lands on the attribute you came from
+  ptView = view; if (tab) ptTab = tab; ptSel = null; if (!quiet) cue('tab');
+  renderShop();
+  const f = view === 'attr' ? shopEl.querySelector('[data-id="at.' + atSel + '"]') : shopEl.querySelector('.pn:is(.open, .own)') || shopEl.querySelector('.pn');
+  if (f) { lastHover = f; f.focus({ preventScroll: true }); }
+}
+function shopBack() { if (ptView === 'tree' && ptTab !== 'inv') shopGo('attr'); else closeShop(); } // ESC / right-click: tree > attributes > close
+function ptCycle(d) { // Q / E: the neighbouring attribute's tree; on the top level, ATTRIBUTES <-> INVENTORY
+  if (ptView === 'tree' && ptTab !== 'inv') { ptTab = AK[(AK.indexOf(ptTab) + d + AK.length) % AK.length]; ptSel = null; cue('tab'); return renderShop(); }
+  shopGo(ptView === 'attr' ? 'tree' : 'attr', ptView === 'attr' ? 'inv' : null);
+}
+function openShop(to) { // to: 'inv', an attribute (its tree), or nothing (the overview)
+  shopEl.hidden = false; cue('open');
+  if (to === 'inv' || AK.includes(to)) shopGo('tree', to, true); else { ptView = 'attr'; shopGo('attr', null, true); }
 }
 function closeShop() { holdEnd(); shopEl.hidden = true; renderClasses(); document.getElementById('openshop').focus(); cue('close'); }
 document.getElementById('openshop').onclick = () => openShop();
-document.getElementById('shopdone').onclick = closeShop;
 metaEl.checked = myMetaOnline;
 metaEl.onchange = () => { myMetaOnline = metaEl.checked; try { localStorage.setItem('coderot-metaonline', myMetaOnline ? '1' : '0'); } catch (_) {} };
 if (!netAvailable()) { document.getElementById('online').hidden = true; }
 const urlRoom = cleanCode(new URLSearchParams(location.search).get('room'));
-if (urlRoom) { codeEl.value = urlRoom; setMsg('Invited to room ' + urlRoom + '. Check your build, then press JOIN.'); }
+if (urlRoom) { codeEl.value = urlRoom; setMsg('Invite · room ' + urlRoom); }
 renderClasses(); renderDiffs(); renderExtras();
 const autoSkipEl = document.getElementById('autoskip');
 autoSkipEl.checked = myAutoSkip;
@@ -428,12 +620,13 @@ function frame(now) {
   let dt = Math.min(.033, (now - last) / 1000) * (adminMode ? ADM.speed : 1); last = now;
   if (hitstop > 0) { hitstop -= dt; dt = 0; }
   if (slowmo > 0) { slowmo -= dt; dt *= .3; } // boss kill-cam
-  update(dt); draw(now / 1000);
+  update(dt);
+  if (shopEl.hidden && cwEl.hidden) draw(now / 1000); // CHARACTER and the clinic cover the whole screen: redrawing the canvas under them halved the menu frame rate
   requestAnimationFrame(frame);
 }
 setView(screenCols()); camTick(0, true); // the view fits this screen; the map is the same size for everyone
 addEventListener('resize', () => setView(screenCols()));
-ambient(); requestAnimationFrame(frame);
+ambient(); addEventListener('DOMContentLoaded', () => requestAnimationFrame(frame)); // after admin.js has run: frame() reads adminMode
 
 // ---------- title screen: the first key / click unlocks audio (browser rule), then the menu flickers in ----------
 const bootEl = document.getElementById('boot');
@@ -537,7 +730,7 @@ function tile(id) {
   const D = CW[id], eq = META.cw.eq, at = cwAt(id), own = cwOwns(id), lk = cwLock(id);
   const b = el('button', 'tile' + (at ? ' inst' : '') + (lk ? ' lock' : '') + (id === cwTipId ? ' sel' : '') + (cwFx && cwFx.id === id ? ' fx-' + cwFx.k : ''));
   b.type = 'button'; b.dataset.id = 'cw.' + id; b.style.setProperty('--t', TIER[D.tier]);
-  b.append(el('span', 'ic', D.ic), el('span', 'nm', D.name), el('span', 'tag' + (at ? ' inst' : own ? ' own' : ''), at ? 'INSTALLED' : own ? 'OWNED' : lk || '◆ ' + fmt(D.cost)));
+  b.append(el('span', 'ic', D.ic), el('span', 'nm', D.name), el('span', 'tag' + (at ? ' inst' : own ? ' own' : ''), at ? 'INSTALLED' : own ? 'OWNED' : lk || '¤ ' + fmt(D.cost)));
   b.onclick = () => cwAct(id);
   b.onfocus = b.onmouseenter = () => { if (cwTipId !== id) { cwTipId = id; renderTip(); cwGrid.querySelectorAll('.tile.sel').forEach(t => t.classList.remove('sel')); b.classList.add('sel'); } };
   return b;
@@ -569,10 +762,10 @@ function renderZoom() {
     f.onclick = () => { cwFilter = k; cue('tab'); renderCw(); }; fl.appendChild(f);
   }
   fh.appendChild(fl); z.appendChild(fh);
-  const grid = el('div', 'tiles'), pass = (own, cost, lk) => cwFilter === 'all' || (cwFilter === 'own' ? own : own || (!lk && creds >= cost));
+  const grid = el('div', 'tiles'), pass = (own, cost, lk) => cwFilter === 'all' || (cwFilter === 'own' ? own : own || (!lk && bytes >= cost));
   const list = cwQh ? QHK.filter(k => pass(qOwns(k), QH[k].cost, qLock(k))) : CWK.filter(k => CW[k].slot === cwCat && pass(cwOwns(k), CW[k].cost, cwLock(k)));
   for (const id of list) grid.appendChild(cwQh ? qtile(id) : tile(id));
-  if (!list.length) grid.appendChild(el('p', 'msg', 'Nothing matches this filter.'));
+  if (!list.length) grid.appendChild(el('p', 'msg', 'No matches.'));
   z.appendChild(grid);
   if (cwQh) { if (!String(cwTipId).startsWith('qh.')) cwTipId = 'qh.' + (qhSlotted()[0] || list[0] || 'ping'); }
   else if (!CW[cwTipId] || CW[cwTipId].slot !== cwCat) cwTipId = META.cw.eq[cwSock] || list[0] || CWK.find(k => CW[k].slot === cwCat);
@@ -583,7 +776,7 @@ function qtile(k) {
   const b = el('button', 'tile qt' + (Q.bw ? ' bw' : '') + (sl ? ' inst' : '') + (ok && !lk ? '' : ' lock') + (id === cwTipId ? ' sel' : '') + (cwFx && cwFx.id === id ? ' fx-' + cwFx.k : ''));
   b.type = 'button'; b.dataset.id = id; b.style.setProperty('--t', Q.bw ? '#FF3E34' : '#52DDDF');
   const ic = el('span', 'ic'); ic.appendChild(qIco(k));
-  b.append(ic, el('span', 'nm', Q.name), el('span', 'tag' + (sl ? ' inst' : own ? ' own' : ''), !ok ? 'TOP DECK ONLY' : sl ? 'SLOTTED' : own ? 'OWNED' : lk || '◆ ' + fmt(Q.cost)));
+  b.append(ic, el('span', 'nm', Q.name), el('span', 'tag' + (sl ? ' inst' : own ? ' own' : ''), !ok ? 'TOP DECK ONLY' : sl ? 'SLOTTED' : own ? 'OWNED' : lk || '¤ ' + fmt(Q.cost)));
   b.onclick = () => qAct(k);
   b.onfocus = b.onmouseenter = () => { if (cwTipId !== id) { cwTipId = id; renderTip(); cwGrid.querySelectorAll('.tile.sel').forEach(t => t.classList.remove('sel')); b.classList.add('sel'); } };
   return b;
@@ -591,7 +784,7 @@ function qtile(k) {
 function qAct(k) { // buy it if needed, then slot / unslot it
   const Q = QH[k], d = cwDeck(); cwTipId = 'qh.' + k; if (!d) return;
   if (Q.bw && !d.bw) { cue('buyfail'); return renderCw(); }
-  if (!qOwns(k)) { if (qLock(k) || creds < Q.cost) return cue('buyfail'); creds -= Q.cost; META.cw.qown.push(k); cue('money'); }
+  if (!qOwns(k)) { if (qLock(k) || bytes < Q.cost) return cue('buyfail'); bytes -= Q.cost; META.cw.qown.push(k); cue('money'); }
   const sl = qhSlotted();
   if (sl.includes(k)) { META.cw.qh = sl.filter(x => x !== k); cue('unequip'); cwFx = { k: 'out', id: 'qh.' + k }; }
   else if (sl.length >= d.slots) { cue('buyfail'); cwFx = { k: 'full', id: 'qh.' + k }; }
@@ -608,9 +801,9 @@ function renderQhTip(k) {
   if (!own && (Q.lv || Q.net)) add('REQUIRES', 'LEVEL ' + (Q.lv || 1) + (Q.net ? ' · NETRUN ' + Q.net : ''));
   const ft = el('footer'), cap = el('span', 'capv'); cap.append(el('i'), document.createTextNode(' ' + Q.ram + ' RAM'));
   const btn = el('button', 'btn' + (on ? '' : ' btn--primary') + ' cp'); btn.type = 'button'; btn.dataset.id = 'qa.' + k;
-  btn.textContent = !ok ? 'NEEDS TOP DECK' : on ? 'UNSLOT' : !own ? (lk ? lk + ' REQUIRED' : creds >= Q.cost ? 'BUY + SLOT' : 'NOT ENOUGH ◆') : sl.length >= d.slots ? 'SLOTS FULL' : 'SLOT';
-  btn.disabled = !ok || (!on && (!own ? !!lk || creds < Q.cost : sl.length >= d.slots)); btn.onclick = () => qAct(k);
-  ft.append(cap, el('span', 'price', on ? 'SLOTTED' : own ? 'OWNED' : '◆ ' + fmt(Q.cost)), btn);
+  btn.textContent = !ok ? 'NEEDS TOP DECK' : on ? 'UNSLOT' : !own ? (lk ? lk + ' REQUIRED' : bytes >= Q.cost ? 'BUY + SLOT' : 'NOT ENOUGH ¤') : sl.length >= d.slots ? 'SLOTS FULL' : 'SLOT';
+  btn.disabled = !ok || (!on && (!own ? !!lk || bytes < Q.cost : sl.length >= d.slots)); btn.onclick = () => qAct(k);
+  ft.append(cap, el('span', 'price', on ? 'SLOTTED' : own ? 'OWNED' : '¤ ' + fmt(Q.cost)), btn);
   cwTip.append(hd, el('p', 'type', 'QUICKHACK · ' + (Q.bw ? 'BLACKWALL' : 'NETDECK')), ic, fx, meta, el('p', 'lore', Q.lore || ''), ft);
 }
 function renderTip() {
@@ -629,10 +822,10 @@ function renderTip() {
   if (D.deck) { add('RAM', D.deck.ram); add('RAM REGEN', '1 / ' + D.deck.regen + 's'); add('UPLOAD SPEED', Math.round(100 / D.deck.up) + '%'); add('QUICKHACK SLOTS', D.deck.slots); if (D.deck.bw) add('BLACKWALL', 'ACCESS'); }
   const ft = el('footer'), cap = el('span', 'capv'); cap.append(el('i'), document.createTextNode(' ' + D.cap));
   const btn = el('button', 'btn' + (at ? '' : ' btn--primary') + ' cp'); btn.type = 'button';
-  btn.textContent = at ? 'REMOVE' : !own ? (lk ? (lk === 'BLUEPRINT' ? 'NEEDS BLUEPRINT' : lk + ' REQUIRED') : creds >= D.cost ? 'BUY + INSTALL' : 'NOT ENOUGH ◆') : fits ? 'INSTALL' : 'NO CAPACITY';
-  btn.disabled = !at && (own ? !fits : !!lk || creds < D.cost);
+  btn.textContent = at ? 'REMOVE' : !own ? (lk ? (lk === 'BLUEPRINT' ? 'NEEDS BLUEPRINT' : lk + ' REQUIRED') : bytes >= D.cost ? 'BUY + INSTALL' : 'NOT ENOUGH ¤') : fits ? 'INSTALL' : 'NO CAPACITY';
+  btn.disabled = !at && (own ? !fits : !!lk || bytes < D.cost);
   btn.onclick = () => cwAct(id);
-  ft.append(cap, el('span', 'price', at ? 'INSTALLED · SOCKET ' + (+(at.match(/\d+$/) || [1])[0]) : own ? 'OWNED' : '◆ ' + fmt(D.cost)), btn);
+  ft.append(cap, el('span', 'price', at ? 'INSTALLED · SOCKET ' + (+(at.match(/\d+$/) || [1])[0]) : own ? 'OWNED' : '¤ ' + fmt(D.cost)), btn);
   cwTip.append(hd, el('p', 'type', CW_SLOTS[D.slot] + ' · ' + cwKind(D)), ic, fx, meta, el('p', 'lore', D.lore));
   if (cwFx && cwFx.id === id && cwFx.k === 'in') cwTip.appendChild(el('div', 'installing', 'INSTALLING'));
   cwTip.appendChild(ft);
@@ -640,7 +833,7 @@ function renderTip() {
 function renderCw() {
   const focusId = document.activeElement && document.activeElement.dataset.id, load = cwLoad(), cap = cwCap();
   cwEl.dataset.view = cwView;
-  document.getElementById('cwwallet').textContent = '◆ ' + fmt(creds);
+  document.getElementById('cwwallet').textContent = '¤ ' + fmt(bytes);
   document.getElementById('cwcapnum').textContent = load + ' / ' + cap;
   document.getElementById('cwnick').textContent = nick;
   document.getElementById('cwcls').textContent = 'LV ' + myLv() + ' · ' + META.shards + '/' + BAL.cw.shardMax + ' CAPACITY SHARDS · ROT//OS 4.0.4';
@@ -665,8 +858,8 @@ function cwAct(id) {
   if (at) { delete eq[at]; cue('unequip'); cwFx = { k: 'out', s: at, cat: D.slot, id }; }
   else {
     if (!cwOwns(id)) {
-      if (cwLock(id) || creds < D.cost) return cue('buyfail');
-      creds -= D.cost; META.cw.own.push(id); cue('money');
+      if (cwLock(id) || bytes < D.cost) return cue('buyfail');
+      bytes -= D.cost; META.cw.own.push(id); cue('money');
     }
     if (!cwFits(id, cwSock)) { cue('buyfail'); cwFx = { k: 'buy', id }; }
     else {

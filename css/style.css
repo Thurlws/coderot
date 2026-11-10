@@ -1,6 +1,10 @@
 /* Coderot · cyberpunk-ui theme. One full-bleed canvas (16:9 arena, letterboxed) + HTML menus over it.
    Every colour, size and timing comes from the cyberpunk-ui tokens: red = default ink, cyan = interactive / yours,
-   amber = goals + creds, green = positive. 45° chamfers, no rounded corners, same-hue glow on all ink. */
+   amber = goals + bytes, green = positive. 45° chamfers, no rounded corners, same-hue glow on all ink. */
+/* the BYTES currency mark: a one-glyph font (chamfered b, two currency strokes) that only replaces ¤ (U+00A4). Falls back to a plain ¤.
+   Built with fontTools (UPM 1000, advance 580). Canvas text picks it up too (DISP / MONO in config.js). */
+@font-face { font-family: "CoderotBytes"; unicode-range: U+A4; font-display: block; /* cp-ok: one-glyph face for ¤ only, Rajdhani still sets every letter */
+  src: url(data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMkWFRFwAAAEoAAAAYGNtYXAADAD3AAABkAAAADRnbHlmLOCgrgAAAcwAAABMaGVhZC928FIAAACsAAAANmhoZWEFUgGxAAAA5AAAACRobXR4BDgAHgAAAYgAAAAIbG9jYQAmAAAAAAHEAAAABm1heHAABwAYAAABCAAAACBuYW1lvxz4bwAAAhgAAABvcG9zdHp6atUAAAKIAAAALAABAAAAAQAA2yolJF8PPPUAAwPoAAAAAOcYVlEAAAAA5xhWUQAeAAACEgLQAAAAAwACAAAAAAAAAAEAAAMg/zgAAAJEAB4AMgISAAEAAAAAAAAAAAAAAAAAAAACAAEAAAACABYABAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwIcAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAPz8/PwAAAKQApAMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAAB9AAAAkQAHgAAAAIAAAADAAAAFAADAAEAAAAUAAQAIAAAAAQABAABAAAApP//AAAApP///10AAQAAAAAAAAAAACYAAAAEAB4AAAISAtAABwANABEAFQAAMxEzFSEXEQclMzc1JyMnNTMVJzUzFVBQAQRubv785jw85oLm5uYC0PBu/vxuUDzIPH03N2Q3NwAAAAAEADYAAQAAAAAAAQAMAAAAAQAAAAAAAgAHAAwAAwABBAkAAQAYABMAAwABBAkAAgAOACtDb2Rlcm90Qnl0ZXNSZWd1bGFyAEMAbwBkAGUAcgBvAHQAQgB5AHQAZQBzAFIAZQBnAHUAbABhAHIAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAQIFYnl0ZXM=) format("truetype"); }
 :root {
   --bg-top: #37171D; --bg-mid: #291319; --bg-low: #0B0F17; --bg-bottom: #060E14;
   --panel: rgb(14 14 23 / .9); --panel-solid: #0E0E17; --field: #121221; --section: #22111C;
@@ -10,11 +14,13 @@
   --amber: #FFD741; --green: #1DED83; --white: #D6D0D0; --light: #EDE7E6; --grey: #A09A96;
   --stat-label: #4CA39A; --stat-dim: #9BB8B8; --glitch-red: #FF2A4F;
   --sel: #4E1A1E; --sel-end: #7A2A2C; --pressed: #6A2428; --thumb: #952E31; --toggle-off: #091D1F; --primary: #1E585C;
-  --ui: "Rajdhani", "Saira Semi Condensed", "Arial Narrow", sans-serif;
-  --mono: "Share Tech Mono", ui-monospace, monospace;
+  --ui: "CoderotBytes", "Rajdhani", "Saira Semi Condensed", "Arial Narrow", sans-serif;
+  --mono: "CoderotBytes", "Share Tech Mono", ui-monospace, monospace;
   --glow-text: 0 0 1px color-mix(in srgb, currentColor 25%, transparent), 0 0 6px color-mix(in srgb, currentColor 30%, transparent), 0 0 18px color-mix(in srgb, currentColor 30%, transparent);
   --glow-label: 0 0 1px color-mix(in srgb, currentColor 25%, transparent), 0 0 5px color-mix(in srgb, currentColor 25%, transparent), 0 0 24px color-mix(in srgb, currentColor 55%, transparent);
   --glow-active: 0 0 1px color-mix(in srgb, currentColor 30%, transparent), 0 0 6px color-mix(in srgb, currentColor 35%, transparent), 0 0 24px color-mix(in srgb, currentColor 65%, transparent);
+  /* bloom: fx.glow.active plus one wider layer, for the bright counters only (points, levels, attribute values, bytes) */
+  --glow-bloom: 0 0 1px color-mix(in srgb, currentColor 40%, transparent), 0 0 6px color-mix(in srgb, currentColor 45%, transparent), 0 0 16px color-mix(in srgb, currentColor 45%, transparent), 0 0 34px color-mix(in srgb, currentColor 35%, transparent);
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -55,6 +61,7 @@ kbd { display: inline-grid; place-items: center; min-width: 28px; height: 28px; 
 .nav { display: grid; gap: 4px; align-content: end; }
 .eyebrow { margin: 0 0 6px; font: 600 17px var(--ui); letter-spacing: .03em; color: var(--red-label); text-transform: uppercase; border-bottom: 1px solid rgb(255 97 89 / .5); padding-bottom: 6px; }
 .eyebrow small, .label small, .head small { font: 500 15px var(--ui); letter-spacing: 0; text-transform: none; color: var(--amber); margin-left: 8px; }
+#wallet { text-shadow: var(--glow-bloom); } /* the bytes counter blooms like the CHARACTER counters */
 .mbtn { --c: 10px; position: relative; height: 50px; padding: 0 16px; text-align: left; font: 500 25px var(--ui); text-transform: uppercase; color: var(--red);
   background: transparent; border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); }
@@ -146,12 +153,12 @@ input::placeholder { color: rgb(94 246 255 / .3); }
 .ptgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; min-height: 0; padding: 26px 0 12px; }
 .ptside { display: grid; align-content: start; gap: 22px; }
 .ptlv { display: grid; gap: 2px; }
-.ptlv b { font: 600 35px/1.1 var(--ui); color: var(--cyan); text-transform: uppercase; text-shadow: var(--glow-label); }
+.ptlv b { font: 600 35px/1.1 var(--ui); color: var(--cyan); text-transform: uppercase; text-shadow: var(--glow-bloom); }
 .ptlv span:last-child { font: 600 15px var(--ui); color: var(--stat-label); text-transform: uppercase; letter-spacing: .04em; }
 .ptpts { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 12px; }
-.ptpts b { font: 600 35px var(--ui); color: var(--amber); text-shadow: var(--glow-label); }
-.ptpts span:last-child { font: 600 15px/1.2 var(--ui); color: var(--amber); text-transform: uppercase; letter-spacing: .04em; }
-.ptchip { width: 30px; height: 30px; border: 2px solid var(--amber); background: repeating-linear-gradient(90deg, var(--amber) 0 3px, transparent 3px 7px) 50% 50% / 16px 12px no-repeat; }
+.ptpts b { font: 600 35px var(--ui); color: var(--amber); text-shadow: var(--glow-bloom); }
+.ptpts span:last-child { font: 600 15px/1.2 var(--ui); color: var(--amber); text-transform: uppercase; letter-spacing: .04em; text-shadow: var(--glow-active); }
+.ptchip { width: 30px; height: 30px; filter: drop-shadow(0 0 5px rgb(255 215 65 / .5)); border: 2px solid var(--amber); background: repeating-linear-gradient(90deg, var(--amber) 0 3px, transparent 3px 7px) 50% 50% / 16px 12px no-repeat; }
 .ptclasses { display: grid; gap: 4px; }
 .ptclasses[hidden] { display: none; }
 .ptc { --c: 8px; display: flex; justify-content: space-between; align-items: center; height: 38px; padding: 0 12px; cursor: pointer; font: 600 17px var(--ui); text-transform: uppercase; letter-spacing: .03em;
@@ -161,49 +168,183 @@ input::placeholder { color: rgb(94 246 255 / .3); }
 .ptc[aria-pressed="true"] { color: var(--cyan-hot); border-color: var(--red); background: linear-gradient(90deg, var(--sel), var(--sel-end)); box-shadow: inset 3px 0 0 var(--cyan); }
 .ptc:disabled { cursor: default; color: var(--stat-dim); border-color: rgb(255 97 89 / .15); }
 .ptc.armed { color: var(--amber); border-color: var(--amber); }
-.ptatt { display: flex; align-items: baseline; gap: 8px; margin: 0; }
-.ptatt b { font: 600 56px/1 var(--ui); color: var(--white); font-variant-numeric: tabular-nums; text-shadow: var(--glow-label); }
-.ptatt span { font: 600 17px var(--ui); color: var(--stat-dim); }
 .ptfx { margin: 0 0 4px; font: 500 15px/1.4 var(--ui); color: var(--stat-label); }
 .ptpts.att b, .ptpts.att span:last-child { color: var(--cyan); }
-.ptpts.att .ptchip { border-color: var(--cyan); background: repeating-linear-gradient(90deg, var(--cyan) 0 3px, transparent 3px 7px) 50% 50% / 16px 12px no-repeat; }
+.ptpts.att .ptchip { filter: drop-shadow(0 0 5px rgb(94 246 255 / .5)); border-color: var(--cyan); background: repeating-linear-gradient(90deg, var(--cyan) 0 3px, transparent 3px 7px) 50% 50% / 16px 12px no-repeat; }
 .ptprog { --c: 10px; display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgb(255 97 89 / .6); background: rgb(14 14 23 / .6); clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); }
 .ptprog .label { margin: 0; display: flex; justify-content: space-between; }
 .ptprog .label b { color: var(--white); font-weight: 600; }
 .ptbar { display: grid; grid-auto-flow: column; gap: 3px; height: 10px; }
 .ptbar i { background: rgb(255 215 65 / .15); transform: skewX(-20deg); }
 .ptbar i.on { background: var(--amber); }
-.ptree { position: relative; display: grid; place-items: center; min-height: 0; }
-#ptcanvas { position: relative; margin-right: 408px; } /* room for the card column */
-#pttraces { position: absolute; left: -60px; top: -60px; overflow: visible; pointer-events: none; }
-#pttraces path { fill: none; stroke-width: 2; stroke-linejoin: miter; stroke-dasharray: none; animation: none; } /* the clinic .trace dash loop does not apply here */
-#pttraces .dbl { stroke-width: 1; opacity: .55; }
-#pttraces .stub { stroke: rgb(52 145 151 / .3); }
-#pttraces .pad { fill: rgb(52 145 151 / .4); }
-#pttraces .trace.lock { stroke: rgb(52 145 151 / .35); }
-#pttraces .trace.open { stroke: rgb(255 97 89 / .55); }
-#pttraces .trace:is(.own, .max) { stroke: var(--amber); filter: drop-shadow(0 0 3px rgb(255 215 65 / .6)); }
+.ptmain { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; min-height: 0; }
+/* tree + card: the canvas is centred in its stage and scaled to fit (ptFit); the card has its own column so it never covers a node.
+   grid-row 2 keeps the stage in the 1fr row even when the header is hidden (INVENTORY) */
+.ptree { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) clamp(290px, 20vw, 380px); gap: 16px; min-height: 0; }
+.ptstage { position: relative; min-width: 0; min-height: 0; }
+#shop[data-view="tree"] .ptgrid { grid-template-columns: minmax(0, 1fr); }
+#shop[data-view="tree"] .ptside { display: none; }
+/* tree header: attribute points | [Q] icon NAME level [E] over five segments | perk points */
+.pthead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.pthead > .ptpts:last-child { justify-self: end; }
+.ptswitch { display: grid; justify-items: center; gap: 10px; }
+.ptcur { display: flex; align-items: center; gap: 14px; }
+.ptcur .atic { width: 30px; height: 30px; fill: none; stroke: var(--cyan); stroke-width: 1.5; stroke-linejoin: miter; filter: drop-shadow(0 0 4px var(--cyan)); }
+.ptcur b { font: 600 35px/1 var(--ui); color: var(--light); text-transform: uppercase; letter-spacing: .04em; text-shadow: var(--glow-label); }
+.ptcur .lv { font: 600 35px/1 var(--ui); color: var(--cyan-hot); text-shadow: var(--glow-bloom); }
+.kq { min-width: 30px; height: 30px; padding: 0 6px; display: grid; place-items: center; font: 600 17px var(--ui); color: var(--cyan); background: none; border: 2px solid var(--cyan); cursor: pointer; text-shadow: var(--glow-label); }
+.kq:is(:hover, :focus-visible) { color: var(--panel-solid); background: var(--cyan); outline: none; text-shadow: none; }
+.kq:first-child { margin-right: 18px; } .kq:last-child { margin-left: 18px; }
+.ptseg { display: flex; gap: 6px; }
+.ptseg .seg { width: 44px; height: 14px; padding: 0; background: none; border: 0; cursor: pointer; display: grid; align-items: center; }
+.ptseg .seg::before { content: ""; height: 4px; background: rgb(255 97 89 / .35); transform: skewX(-30deg); }
+.ptseg .seg:is(:hover, :focus-visible) { outline: none; } .ptseg .seg:is(:hover, :focus-visible)::before { background: var(--cyan-soft); }
+.ptseg .seg.on::before { background: var(--cyan-hot); box-shadow: 0 0 6px var(--cyan-hot), 0 0 14px rgb(40 255 255 / .5); }
 
-/* nodes: dim = locked, red = can buy, amber = bought, cyan = selected */
-.pnode { --k: rgb(52 145 151 / .45); --c: 12px; position: absolute; width: 112px; height: 112px; display: grid; place-items: center; padding: 0; cursor: pointer; color: var(--k);
-  background: rgb(11 15 23 / .85); border: 1px solid var(--k); clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); overflow: visible; }
-.pnode .pic { width: 58px; height: 58px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: miter; }
-.pnode .cnt { position: absolute; right: 6px; top: 4px; font: 600 12px var(--ui); letter-spacing: .04em; color: currentColor; }
-.pnode .ser { position: absolute; left: 6px; bottom: 4px; font: 500 8px var(--ui); letter-spacing: .06em; opacity: .5; }
-.pnode .eqd { position: absolute; left: 0; right: 0; bottom: -20px; font: 600 12px var(--ui); color: var(--cyan); letter-spacing: .06em; }
-.pnode.open { --k: var(--red); background: rgb(49 24 30 / .85); }
-.pnode.own { --k: var(--amber); background: rgb(255 215 65 / .08); }
-.pnode.max { --k: var(--amber); background: rgb(255 215 65 / .16); filter: drop-shadow(0 0 6px rgb(255 215 65 / .45)); }
-.pnode:is(.open, .own, .max) .pic { filter: drop-shadow(0 0 4px currentColor); }
-.pnode:is(:hover, :focus-visible), .pnode.sel { --k: var(--cyan); outline: none; background: rgb(23 44 46 / .85); }
-.pnode.lock:is(:hover, :focus-visible, .sel) { --k: var(--cyan-line); }
-.pnode::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(255 215 65 / .45), rgb(255 215 65 / .45)) 0 100% / 100% 0 no-repeat; pointer-events: none; }
-.pnode.holding::after { animation: holdfill .45s linear both; } /* cp-ok: hold-to-buy timer, not a transition */
-.pnode.deny { animation: click-flash .16s step-end; --k: var(--hostile); }
-.pnode.fx { animation: click-flash .16s step-end 2; }
+/* CHARACTER > ATTRIBUTES: five plates around the LEVEL core. Hold + to raise one, click to open its perk tree */
+#shop:not([data-view="attr"]) .atgrid, #shop[data-view="attr"] .ptgrid { display: none; }
+.atgrid { display: grid; grid-template-columns: 300px minmax(0, 1fr) 400px; gap: 24px; min-height: 0; padding: 26px 0 12px; }
+.atside { display: grid; align-content: start; gap: 22px; }
+.atnote { margin: 0; font-size: 15px; line-height: 1.5; color: var(--stat-dim); }
+.atmid { position: relative; min-height: 0; min-width: 0; overflow: hidden; }
+.athex { position: absolute; left: 50%; top: 50%; width: 720px; height: 680px; margin: -340px 0 0 -360px; } /* scaled to fit by atFit (main.js) */
+.athex > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.athex line { stroke: rgb(255 97 89 / .28); stroke-width: 2; }
+.athex line.on { stroke: rgb(94 246 255 / .55); }
+.atcore { position: absolute; left: 260px; top: 240px; width: 200px; height: 200px; display: grid; place-content: center; justify-items: center; color: var(--cyan); }
+.atcore svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.atcore path { fill: rgb(14 14 23 / .9); stroke: var(--red-mild); stroke-width: 1; }
+.atcore path.in { fill: none; stroke: rgb(94 246 255 / .3); }
+.atcore b { position: relative; font: 600 46px/1 var(--ui); text-shadow: var(--glow-bloom); }
+.atcore span { position: relative; font: 600 21px var(--ui); letter-spacing: .08em; text-shadow: var(--glow-label); }
+.atcore small { position: relative; font: 600 12px var(--ui); letter-spacing: .04em; color: var(--stat-label); }
+.atp { position: absolute; width: 250px; height: 150px; color: var(--red); }
+.atshape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.atshape path { fill: rgb(49 24 30 / .94); stroke: var(--red-mild); stroke-width: 1; }
+.atshape path.in { fill: none; stroke: rgb(255 97 89 / .22); }
+.atbtn { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; justify-items: center; align-items: center; padding: 20px 40px 24px; overflow: visible; cursor: pointer;
+  color: inherit; background: none; border: 0; font-family: var(--ui); clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%); }
+.atbtn:focus-visible { outline: none; }
+.atname { font: 600 21px var(--ui); text-transform: uppercase; letter-spacing: .04em; text-shadow: var(--glow-label); }
+.atval { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 10px; }
+.atval .atic { grid-row: span 2; width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: miter; filter: drop-shadow(0 0 4px currentColor); }
+.atval b { font: 600 35px/1 var(--ui); color: var(--white); text-shadow: var(--glow-bloom); }
+.atval .num { display: grid; } .atval .num > b { grid-area: 1 / 1; }
+.atval small { font: 600 12px var(--ui); letter-spacing: .08em; color: var(--stat-label); text-transform: uppercase; }
+.atp .ser { position: absolute; left: 0; right: 0; top: -15px; text-align: center; font: 500 9px var(--ui); letter-spacing: .08em; opacity: .45; } /* serial stamp above the plate */
+.atp.sel { color: var(--cyan); }
+.atp.sel .atshape path { fill: rgb(23 44 46 / .96); stroke: var(--cyan); stroke-width: 2; }
+.atp.sel .atshape path.in { stroke: rgb(94 246 255 / .3); stroke-width: 1; }
+.atp.sel .atname { text-shadow: var(--glow-active); }
+.atp.sel .atval b { color: var(--cyan-hot); }
+.atp.max .atval b { color: var(--amber); }
+.atp.inv .atval b { font-size: 25px; }
+.atp.inv .atval small { max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atp.deny { animation: click-flash .16s step-end; }
+.atp.deny .atshape path { stroke: var(--hostile); }
+/* raise (≈ 480 ms in all): old value rolls out, new rolls in (motion.counter), a scan line climbs the plate (motion.wipe), the outline flares,
+   +1 lifts off, a pulse runs down the trace and the LEVEL core flares as it lands */
+.atp.fx .num > b { animation: roll-in .25s cubic-bezier(.33, 1, .68, 1) both; }
+.atp.fx .num > b.was { animation-name: roll-out; color: var(--white); }
+.atp.fx .atshape { animation: flare .3s linear; }
+.atp.fx::after { content: ""; position: absolute; inset: 0; pointer-events: none; clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+  background: linear-gradient(0deg, transparent 38%, rgb(94 246 255 / .22) 47%, rgb(40 255 255 / .85) 49.5%, transparent 50.5%) 0 0 / 100% 250% no-repeat;
+  animation: scan-up .25s linear both; }
+.atgain { position: absolute; right: 58px; top: 62px; font: 600 21px var(--ui); color: var(--cyan-hot); text-shadow: var(--glow-active); pointer-events: none;
+  animation: lift .48s cubic-bezier(.33, 1, .68, 1) both; } /* cp-ok: rise + fade must stay readable; inside motion.introTotal 500ms */
+.athex line.pulse { stroke: var(--cyan-hot); stroke-width: 3; stroke-dasharray: 46 900; stroke-dashoffset: -40; filter: drop-shadow(0 0 4px var(--cyan-hot));
+  animation: trace-run .25s linear .08s both; }
+.atcore.fx svg { animation: flare .25s linear .22s; }
+@keyframes roll-in { from { transform: translateY(.6em); opacity: 0; } }
+@keyframes roll-out { to { transform: translateY(-.6em); opacity: 0; } }
+@keyframes scan-up { from { background-position: 0 0; } to { background-position: 0 100%; } }
+@keyframes flare { from { filter: drop-shadow(0 0 10px currentColor) brightness(1.8); } to { filter: none; } }
+@keyframes lift { 0% { transform: translateY(10px); opacity: 0; } 25% { opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+@keyframes trace-run { from { stroke-dashoffset: -40; } to { stroke-dashoffset: -250; opacity: .2; } }
+/* hold to raise: after a 150 ms tap window (a click opens perks) a cyan charge rises inside the hex while a hot trace runs round the outline.
+   Timings match AT_TAP / AT_FILL in main.js; .now = keyboard hold, no tap window */
+.atp > .atbtn { z-index: 2; } .atp > .atgain, .atp.fx::after { z-index: 3; }
+.atp.up .atshape path.in { stroke: rgb(94 246 255 / .35); stroke-dasharray: 6 5; } /* a point to spend */
+.atshape .ring { fill: none !important; stroke: var(--cyan-hot) !important; stroke-width: 3 !important; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+.atp::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; clip-path: polygon(18% 0, 82% 0, 100% 50%, 82% 100%, 18% 100%, 0 50%);
+  background: linear-gradient(0deg, rgb(94 246 255 / .34), rgb(94 246 255 / .1) calc(100% - 4px), var(--cyan-hot) calc(100% - 4px) calc(100% - 2px), transparent calc(100% - 2px)) 0 100% / 100% 0 no-repeat; }
+.atp.holding::before { animation: holdfill .45s linear .15s both; } /* cp-ok: hold-to-raise timer, not a transition */
+.atp.holding .ring { opacity: 1; filter: drop-shadow(0 0 4px var(--cyan-hot)) drop-shadow(0 0 10px rgb(40 255 255 / .6)); animation: ring-draw .45s linear .15s both; } /* cp-ok: hold timer */
+.atp.holding .atshape > path:first-child { stroke: rgb(40 255 255 / .3); } /* dim the frame so the trace reads as it runs */
+.atp.holding .atval b { color: var(--cyan-hot); }
+.atp.holding.now::before, .atp.holding.now .ring { animation-delay: 0s; }
+@keyframes ring-draw { to { stroke-dashoffset: 0; } }
+.atmax { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); padding: 1px 10px; font: 600 12px var(--ui); letter-spacing: .08em; color: var(--panel-solid); background: var(--amber); text-shadow: none; }
+.atgrid > .atcard { --c: 14px; grid-area: auto; align-self: start; } /* .cwtip places itself in the clinic grid; not here */
+.atcard .lvtag { font: 600 17px var(--ui); color: var(--red); letter-spacing: .04em; white-space: nowrap; }
+.atcard .label { margin: 0; }
+.atcard .hold { display: flex; align-items: center; gap: 6px; font: 600 15px var(--ui); color: var(--cyan); letter-spacing: .04em; }
+.atcard .hold kbd { height: 24px; font-size: 13px; }
+.atcard .hold.no { color: var(--red-label); }
+.atgrid .atcard .meta dd { color: var(--white); }
+#ptcanvas { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
+#pttraces { position: absolute; overflow: visible; pointer-events: none; }
+#pttraces path { fill: none; stroke-width: 2; stroke-linejoin: miter; stroke-dasharray: none; animation: none; } /* the clinic .trace dash loop does not apply here */
+/* perk trees: double traces. lit (powered up to something you own) = hot cyan with bloom, open = cyan line, locked = dim red */
+#pttraces .trace { stroke-width: 1.5; }
+#pttraces .trace.lock { stroke: rgb(174 59 54 / .45); }
+#pttraces .trace.open { stroke: rgb(82 221 223 / .45); }
+#pttraces .trace.on { stroke: var(--cyan-hot); filter: drop-shadow(0 0 3px var(--cyan-hot)) drop-shadow(0 0 8px rgb(40 255 255 / .45)); }
+#pttraces .pin { fill: var(--cyan-line); }
+#pttraces .lockline { stroke: var(--hostile); stroke-width: 2; filter: drop-shadow(0 0 4px var(--hostile)) drop-shadow(0 0 12px rgb(255 62 52 / .6)); }
+#pttraces .lockline.dim { stroke: rgb(255 62 52 / .3); stroke-width: 1; filter: none; }
+.ptdim { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; /* the locked tiers, above the lock line */
+  background: linear-gradient(color-mix(in srgb, var(--bg-bottom) 78%, transparent), color-mix(in srgb, var(--bg-bottom) 55%, transparent)),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--hostile) 7%, transparent) 0 1px, transparent 1px 10px);
+  mask: linear-gradient(90deg, transparent, #000 60px calc(100% - 60px), transparent), linear-gradient(transparent, #000 40px); mask-composite: intersect; }
+.ptlock { --c: 8px; position: absolute; width: 34px; height: 34px; translate: -50% -50%; display: grid; place-items: center; color: var(--hostile); background: var(--panel-solid);
+  border: 2px solid var(--hostile); clip-path: polygon(var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)); }
+.lk { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: miter; }
+.ptlock .lk { filter: drop-shadow(0 0 4px var(--hostile)); }
+.ptreq, .ptrank { position: absolute; translate: 0 -50%; display: grid; gap: 2px; text-transform: uppercase; letter-spacing: .04em; pointer-events: none; }
+.ptreq { left: 0; font: 600 17px/1.1 var(--ui); color: var(--stat-label); }
+.ptreq small { font-size: 12px; opacity: .7; }
+.ptrank { right: 0; justify-items: end; font: 600 21px/1.1 var(--ui); color: var(--cyan); text-shadow: var(--glow-label); }
+.ptrank i { display: flex; align-items: center; gap: 4px; font: 600 12px var(--ui); font-style: normal; letter-spacing: .08em; }
+.ptrank .lk { width: 14px; height: 14px; }
+:is(.ptreq, .ptrank).lock { color: var(--red-mild); opacity: .75; }
+/* nodes: big octagons sit on a trunk, small chamfered squares branch off; dim red = locked tier, cyan line = open, lit cyan + bloom = owned */
+.pn { --k: rgb(174 59 54 / .8); --f: rgb(20 9 13 / .94); position: absolute; display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: pointer; color: var(--k); } /* cp-ok: node fill */
+.pn.big { width: 100px; height: 100px; } .pn.sm { width: 60px; height: 60px; }
+.pn .pshape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pn .pshape .o { fill: var(--f); stroke: var(--k); stroke-width: 1.5; }
+.pn .pshape .i { fill: none; stroke: var(--k); stroke-width: 1; opacity: .35; }
+.pn .pic { position: relative; width: 48px; height: 48px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: miter; }
+.pn.sm .pic { width: 28px; height: 28px; }
+.pn.lock .pic { opacity: .55; }
+.pn.open { --k: var(--cyan-soft); --f: rgb(9 22 28 / .94); } /* cp-ok: node fill */
+.pn:is(.own, .max) { --k: var(--cyan-hot); --f: rgb(16 64 72 / .94); } /* cp-ok: node fill */
+.pn:is(.own, .max) .pshape { filter: drop-shadow(0 0 5px rgb(40 255 255 / .55)) drop-shadow(0 0 16px rgb(40 255 255 / .25)); }
+.pn:is(.open, .own, .max) .pic { filter: drop-shadow(0 0 4px currentColor); }
+.pn:is(:hover, :focus-visible) { outline: none; }
+.pn:is(:hover, :focus-visible, .sel) .pshape .o { stroke: var(--light); stroke-width: 2.5; }
+.pn.lock:is(:hover, :focus-visible, .sel) .pshape .o { stroke: var(--red); }
+.pn .cnt { position: absolute; left: 50%; bottom: -10px; translate: -50% 0; min-width: 38px; padding: 1px 6px; font: 600 13px/1.2 var(--ui); text-align: center; color: var(--k);
+  background: var(--panel-solid); border: 1px solid var(--k); }
+.pn.sm .cnt { bottom: -9px; min-width: 30px; font-size: 11px; }
+.pn.max .cnt { color: var(--amber); border-color: var(--amber); text-shadow: var(--glow-label); }
+.pn .eqd { position: absolute; left: 50%; top: 9px; translate: -50% 0; font: 600 10px var(--ui); letter-spacing: .06em; color: var(--cyan-hot); white-space: nowrap; }
+.pn::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(0deg, rgb(94 246 255 / .4), rgb(94 246 255 / .14) calc(100% - 4px), var(--cyan-hot) calc(100% - 4px) calc(100% - 2px), transparent calc(100% - 2px)) 0 100% / 100% 0 no-repeat; }
+.pn.big::after { clip-path: polygon(28% 0, 72% 0, 100% 28%, 100% 72%, 72% 100%, 28% 100%, 0 72%, 0 28%); }
+.pn.sm::after { clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%); }
+.pn.holding::after { animation: holdfill .45s linear both; } /* cp-ok: hold-to-buy timer, not a transition */
+.pn.holding .pshape .o { stroke: var(--cyan-hot); }
+.pn.deny { animation: click-flash .16s step-end; --k: var(--hostile); }
+.pn.fx :is(.pic, .pshape) { animation: flare .3s linear; } /* bought: the node flares, a scan line climbs it */
+.pn.fx::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; clip-path: inherit;
+  background: linear-gradient(0deg, transparent 38%, rgb(94 246 255 / .22) 47%, rgb(40 255 255 / .9) 49.5%, transparent 50.5%) 0 0 / 100% 250% no-repeat;
+  animation: scan-up .25s linear both; }
+.pn.big.fx::before { clip-path: polygon(28% 0, 72% 0, 100% 28%, 100% 72%, 72% 100%, 28% 100%, 0 72%, 0 28%); }
+
 
 /* tooltip card beside the node */
-.pttip { --c: 14px; position: absolute; z-index: 2; width: 360px; display: grid; gap: 8px; padding: 16px 18px; font-size: 18px; color: var(--white);
+.pttip { --c: 14px; position: relative; z-index: 2; align-self: center; width: 100%; display: grid; gap: 8px; padding: 16px 18px; font-size: 18px; color: var(--white);
   background: rgb(14 14 23 / .94); border: 1px solid var(--red-mild); clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); }
 .pttip[hidden] { display: none; }
 .pttip header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
@@ -239,12 +380,12 @@ input::placeholder { color: rgb(94 246 255 / .3); }
 .cwtabs .tab:is(:hover, :focus-visible) { color: var(--cyan); outline: none; text-shadow: var(--glow-active); }
 .cwtabs .tab.on { font-size: 35px; color: var(--cyan-hot); cursor: default; box-shadow: inset 0 -4px 0 var(--cyan); background: linear-gradient(0deg, rgb(94 246 255 / .1), transparent); }
 .cwcap { display: grid; gap: 4px; width: 300px; }
-.cwcap .label b { color: var(--cyan); font-weight: 600; }
+.cwcap .label b { color: var(--cyan); font-weight: 600; text-shadow: var(--glow-bloom); }
 .capbar { display: grid; grid-auto-flow: column; gap: 3px; height: 10px; }
 .capbar i { background: rgb(94 246 255 / .12); transform: skewX(-20deg); }
 .capbar i.on { background: var(--cyan); }
 .capbar i.new { animation: fadein .1s linear both; }
-.money { font: 400 30px var(--ui); color: var(--amber); }
+.money { font: 400 30px var(--ui); color: var(--amber); text-shadow: var(--glow-bloom) !important; }
 
 .cwgrid { position: relative; display: grid; gap: 24px; min-height: 0; padding: 22px 0 12px;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 1.05fr) minmax(0, 1fr); grid-template-areas: "l h r"; }
@@ -355,8 +496,8 @@ input::placeholder { color: rgb(94 246 255 / .3); }
   background: linear-gradient(0deg, color-mix(in srgb, var(--t) 22%, transparent), transparent 70%), rgb(23 44 46 / .4); border-bottom: 3px solid var(--t);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); }
 .tipic .ico { width: 56px; height: 56px; fill: none; stroke: var(--t); stroke-width: 1.4; filter: drop-shadow(0 0 4px var(--t)); }
-.ptside .opt { font-size: 17px; padding: 4px 0; flex-wrap: wrap; gap: 4px 12px; }
-.ptside .opt small { margin-left: 30px; text-align: left; flex-basis: 100%; }
+:is(.ptside, .atside) .opt { font-size: 17px; padding: 4px 0; flex-wrap: wrap; gap: 4px 12px; }
+:is(.ptside, .atside) .opt small { margin-left: 30px; text-align: left; flex-basis: 100%; }
 .cwtip .fx { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; color: var(--white); line-height: 1.5; }
 .cwtip .fx li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; }
 .cwtip .fx li::before { content: ""; width: 8px; height: 8px; margin-top: 9px; background: var(--green); transform: rotate(45deg); }
@@ -369,7 +510,6 @@ input::placeholder { color: rgb(94 246 255 / .3); }
 .capv i { width: 12px; height: 16px; background: var(--cyan); transform: skewX(-20deg); }
 .cwtip .price { color: var(--amber); font-size: 19px; flex: 1; }
 .cwtip .btn { height: 40px; font-size: 18px; }
-.pnode .eqd { left: 6px; right: auto; top: 4px; bottom: auto; font-size: 10px; }
 .installing { position: relative; height: 22px; display: flex; align-items: center; padding-left: 8px; font: 600 12px var(--ui); letter-spacing: .1em; color: var(--panel-solid); text-shadow: none;
   background: linear-gradient(90deg, var(--cyan) 0 100%) 0 0 / 0 100% no-repeat, rgb(94 246 255 / .15); animation: fillbar .25s linear both; }
 
@@ -415,6 +555,7 @@ input::placeholder { color: rgb(94 246 255 / .3); }
   #cyber[data-view="zoom"] .cwgrid { grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr); grid-template-areas: "z t"; }
   #cyber[data-view="zoom"] .cwholo { display: none; }
   #cyber { overflow-y: auto; }
+  .atgrid { grid-template-columns: 260px minmax(0, 1fr) 340px; gap: 16px; }
 }
 @media (max-width: 859px) {
   #menu { left: 12px; right: 12px; top: 12px; bottom: 12px; max-height: none; overflow-y: auto; grid-template-columns: 1fr; align-items: start; }
@@ -429,9 +570,14 @@ input::placeholder { color: rgb(94 246 255 / .3); }
   .cwholo, .cwlines, .cwtabs .tab:not(.on) { display: none; }
   #cwleft .cat { justify-items: start; text-align: left; } #cwleft .cathd, #cwleft .socks { flex-direction: row; }
   .opt.range { grid-template-columns: 1fr; }
+  #shop { padding: 0 12px 12px; overflow-y: auto; }
+  .atgrid { grid-template-columns: 1fr; }
+  .atmid { height: 420px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #menu, .dialog, #cyber, .boot-prompt { animation: none; }
   #cyber *, #cyber *::before, #cyber *::after { animation: none !important; transition: none !important; } /* static hologram, no flicker / glitch */
   :is(.mbtn, .btn) { animation: none !important; }
+  :is(.atp.fx, .pn.fx) :is(*, ::before, ::after), .pn.fx::before, .atp.fx::after, .atcore.fx svg { animation: none !important; } /* raise / buy: value just updates */
+  .atgain, .athex .pulse, .num > b.was { display: none; }
 }
